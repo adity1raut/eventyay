@@ -1605,6 +1605,14 @@ ENTROPY = {
     'giftcard_secret': 12,
 }
 
+# Days of the month on which an unpaid billing invoice reminds the organizer.
+# Seeded onto BillingInvoice.reminder_schedule at creation time, see
+# eventyay/eventyay_common/tasks.py::collect_billing_invoice.
+# Keep every value <= 28: check_billing_status_for_warning() and
+# retry_failed_payment() pass these straight to datetime(year, month, day),
+# which raises ValueError for days 29-31 in shorter months.
+BILLING_REMINDER_SCHEDULE = [14, 28]
+
 IS_HTML_EXPORT = False
 HTMLEXPORT_ROOT = DATA_DIR / 'htmlexport'
 
