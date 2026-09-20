@@ -7,12 +7,15 @@ from eventyay.base.models import (
     Answer,
     Event,
     Organizer,
+    ReviewPhase,
     SpeakerSocialLink,
     Submission,
     TalkQuestion,
     TalkQuestionRequired,
     TalkQuestionTarget,
     TalkQuestionVariant,
+    Team,
+    Track,
     User,
 )
 from eventyay.orga.utils.speakers import get_submission_answers, get_submission_speakers
@@ -43,6 +46,12 @@ def speaker(event):
 
 
 @pytest.fixture
+def orga_user(event):
+    with scopes_disabled():
+        return User.objects.create_user(email='orga@example.org', password='password123', fullname='Orga One')
+
+
+@pytest.fixture
 def submission(event, speaker):
     with scopes_disabled():
         submission = Submission.objects.create(
@@ -69,7 +78,7 @@ def make_question(event, target, question, *, visible_to_reviewers=True, positio
 
 
 @pytest.mark.django_db
-def test_organisers_see_speaker_questions_hidden_from_reviewers(event, speaker, submission):
+def test_organisers_see_speaker_questions_hidden_from_reviewers(event, speaker, submission, orga_user):
     with scopes_disabled():
         hidden = make_question(
             event, TalkQuestionTarget.SPEAKER, 'Relationship with the topic?', visible_to_reviewers=False
@@ -79,8 +88,8 @@ def test_organisers_see_speaker_questions_hidden_from_reviewers(event, speaker, 
         Answer.objects.create(question=shown, person=speaker, answer='No')
 
     with scope(event=event):
-        for_orga = get_submission_speakers(submission, for_reviewers=False)
-        for_reviewers = get_submission_speakers(submission, for_reviewers=True)
+        for_orga = get_submission_speakers(submission, for_reviewers=False, user=orga_user)
+        for_reviewers = get_submission_speakers(submission, for_reviewers=True, user=orga_user)
 
     assert [answer.question.question for answer in for_orga[0].answers] == [
         'Relationship with the topic?',
@@ -90,7 +99,7 @@ def test_organisers_see_speaker_questions_hidden_from_reviewers(event, speaker, 
 
 
 @pytest.mark.django_db
-def test_speaker_details_carry_social_links_and_other_proposals(event, speaker, submission):
+def test_speaker_details_carry_social_links_and_other_proposals(event, speaker, submission, orga_user):
     with scopes_disabled():
         profile = speaker.event_profile(event)
         SpeakerSocialLink.objects.create(profile=profile, network='github', url='https://github.com/speaker-one')
@@ -103,7 +112,7 @@ def test_speaker_details_carry_social_links_and_other_proposals(event, speaker, 
         other.speakers.add(speaker)
 
     with scope(event=event):
-        speakers = get_submission_speakers(submission, for_reviewers=False)
+        speakers = get_submission_speakers(submission, for_reviewers=False, user=orga_user)
 
     assert len(speakers) == 1
     details = speakers[0]
@@ -113,7 +122,7 @@ def test_speaker_details_carry_social_links_and_other_proposals(event, speaker, 
 
 
 @pytest.mark.django_db
-def test_inactive_speaker_questions_are_left_out(event, speaker, submission):
+def test_inactive_speaker_questions_are_left_out(event, speaker, submission, orga_user):
     with scopes_disabled():
         question = make_question(event, TalkQuestionTarget.SPEAKER, 'Retired field?')
         Answer.objects.create(question=question, person=speaker, answer='Still here')
@@ -121,9 +130,63 @@ def test_inactive_speaker_questions_are_left_out(event, speaker, submission):
         question.save()
 
     with scope(event=event):
-        speakers = get_submission_speakers(submission, for_reviewers=False)
+        speakers = get_submission_speakers(submission, for_reviewers=False, user=orga_user)
 
     assert speakers[0].answers == ()
+
+
+@pytest.mark.django_db
+def test_reviewers_only_see_other_proposals_they_may_review(event, speaker, submission, orga_user):
+    with scopes_disabled():
+        reviewer = User.objects.create_user(email='reviewer@example.org', password='password123', fullname='Reviewer')
+        reviewed_track = Track.objects.create(event=event, name='Reviewed track', color='#00ff00')
+        other_track = Track.objects.create(event=event, name='Other track', color='#ff0000')
+        team = Team.objects.create(organizer=event.organizer, name='Reviewers', is_reviewer=True)
+        team.limit_events.add(event)
+        team.limit_tracks.add(reviewed_track)
+        team.members.add(reviewer)
+        ReviewPhase.objects.create(event=event, name='Review', is_active=True, proposal_visibility='all')
+        submission.track = reviewed_track
+        submission.save()
+        for title, track in (('In my tracks', reviewed_track), ('Out of my tracks', other_track)):
+            other = Submission.objects.create(
+                title=title,
+                event=event,
+                submission_type=event.cfp.default_type,
+                track=track,
+                content_locale='en',
+            )
+            other.speakers.add(speaker)
+
+    with scope(event=event):
+        for_orga = get_submission_speakers(submission, for_reviewers=False, user=orga_user)
+        for_reviewers = get_submission_speakers(submission, for_reviewers=True, user=reviewer)
+
+    assert sorted(other.title for other in for_orga[0].other_submissions) == [
+        'In my tracks',
+        'Out of my tracks',
+    ]
+    assert [other.title for other in for_reviewers[0].other_submissions] == ['In my tracks']
+
+
+@pytest.mark.django_db
+def test_imported_questions_are_left_out(event, speaker, submission, orga_user):
+    with scopes_disabled():
+        speaker_question = make_question(event, TalkQuestionTarget.SPEAKER, 'Imported speaker field')
+        speaker_question.is_imported = True
+        speaker_question.save()
+        Answer.objects.create(question=speaker_question, person=speaker, answer='From the import')
+        proposal_question = make_question(event, TalkQuestionTarget.SUBMISSION, 'Imported proposal field')
+        proposal_question.is_imported = True
+        proposal_question.save()
+        Answer.objects.create(question=proposal_question, submission=submission, answer='From the import')
+
+    with scope(event=event):
+        speakers = get_submission_speakers(submission, for_reviewers=False, user=orga_user)
+        answers = get_submission_answers(submission, for_reviewers=False)
+
+    assert speakers[0].answers == ()
+    assert answers == []
 
 
 @pytest.mark.django_db

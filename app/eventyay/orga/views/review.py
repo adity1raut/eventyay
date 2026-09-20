@@ -471,7 +471,11 @@ class ReviewSubmission(ReviewViewMixin, PermissionRequired, CreateOrUpdateView):
     @context
     @cached_property
     def speakers(self):
-        return get_submission_speakers(self.submission, for_reviewers=self.for_reviewers)
+        return get_submission_speakers(
+            self.submission,
+            for_reviewers=self.for_reviewers,
+            user=self.request.user,
+        )
 
     @context
     @cached_property

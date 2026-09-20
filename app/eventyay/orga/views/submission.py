@@ -306,6 +306,7 @@ class SubmissionSpeakers(ReviewerSubmissionFilter, SubmissionViewMixin, FormView
         return get_submission_speakers(
             self.object,
             for_reviewers=viewer_is_reviewer_only(self.request.user, self.request.event),
+            user=self.request.user,
         )
 
     def form_valid(self, form):
