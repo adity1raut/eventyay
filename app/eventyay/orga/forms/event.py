@@ -41,17 +41,11 @@ SHOW_FEATURED_VISIBILITY_CHOICES = (
 )
 
 SHOW_FEATURED_SESSIONS_HELP = _(
-    'Controls when the featured sessions page and nav tab are shown publicly: never, only until '
-    'the first schedule is published (as a teaser), from the first schedule version onwards, or '
-    'always. The "first schedule version" option also previews featured sessions while no '
-    'schedule exists yet. '
+    'Controls when the featured sessions page and nav tab are shown. '
     'Mark sessions as featured for content — Always alone does not populate the page.'
 )
 SHOW_FEATURED_SPEAKERS_HELP = _(
-    'Controls when the featured speakers block on the event info page is shown publicly: never, '
-    'only until the first schedule is published (as a teaser), from the first schedule version '
-    'onwards, or always. The "first schedule version" option already shows them as soon as '
-    'speakers are marked as featured. '
+    'Controls the featured speakers block on the event info page. '
     'Mark speakers as featured for content — Always alone does not populate the page.'
 )
 
