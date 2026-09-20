@@ -251,10 +251,8 @@
                                         {% else %}
                                             <span class="value-pill value-pill--negative"><i class="fa fa-times text-danger"></i> {% translate "No" %}</span>
                                         {% endif %}
-                                    {% elif field.field.answer.answer_file %}
-                                        <a href="{{ field.field.answer.answer_file.url }}" target="_blank">
-                                            <i class="fa fa-paperclip"></i> {{ field.field.answer.answer_file.name }}
-                                        </a>
+                                    {% elif field.field.question.variant == 'file' %}
+                                        {% include "common/includes/answer_file.html" with answer=field.field.answer %}
                                     {% else %}
                                         {{ field.field.answer.answer_string|rich_text|default:"-" }}
                                     {% endif %}
