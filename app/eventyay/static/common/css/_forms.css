@@ -467,6 +467,24 @@ input[type="number"]:not(.show-spinner) {
   }
 }
 
+/* Custom field answers and speaker details, shared by the organiser
+   Content, Speakers and Reviews tabs. */
+.submission-answer + .submission-answer {
+  margin-top: 0.75rem;
+}
+
+.submission-answer-value {
+  margin-top: 0.25rem;
+}
+
+.speaker-social-links li + li {
+  margin-top: 0.25rem;
+}
+
+.speaker-details > .submission-answers {
+  margin-bottom: 1rem;
+}
+
 .answer-file-input {
   .answer-file-input-preview {
     width: fit-content;
