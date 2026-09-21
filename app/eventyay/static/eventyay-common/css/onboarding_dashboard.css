@@ -382,13 +382,11 @@
   transform: scale(1.06);
 }
 
-.cd-action-card__icon--attend,
 .cd-action-card__icon--primary {
   color: var(--cd-primary);
   background: color-mix(in srgb, var(--cd-primary) 14%, white);
 }
 
-.cd-action-card__icon--talk,
 .cd-action-card__icon--success {
   color: var(--cd-positive);
   background: color-mix(in srgb, var(--cd-positive) 16%, white);
@@ -655,26 +653,13 @@
   padding: 0.55rem 0.5rem;
   border: none;
   border-radius: 0.7rem;
+  background: var(--cd-primary);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--cd-primary) 28%, transparent);
   color: #fff;
   font-size: 1.15rem;
   text-decoration: none;
   cursor: pointer;
   transition: filter var(--cd-ease), transform var(--cd-ease), box-shadow var(--cd-ease);
-}
-
-.common-dashboard a.cd-module-btn--tickets {
-  background: var(--cd-primary);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--cd-primary) 28%, transparent);
-}
-
-.common-dashboard a.cd-module-btn--talks {
-  background: var(--cd-warning);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--cd-warning) 28%, transparent);
-}
-
-.common-dashboard a.cd-module-btn--video {
-  background: var(--cd-positive);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--cd-positive) 28%, transparent);
 }
 
 .common-dashboard a.cd-module-btn:hover,

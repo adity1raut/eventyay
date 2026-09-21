@@ -135,6 +135,14 @@ def test_organiser_dashboard_still_shown_for_event_managers(organizer_client, ev
 
 
 @pytest.mark.django_db
+def test_event_card_component_buttons_share_one_style(organizer_client, event):
+    response = organizer_client.get(reverse('eventyay_common:dashboard'))
+    content = response.content.decode()
+    assert content.count('class="cd-module-btn"') == 3
+    assert 'cd-module-btn--' not in content
+
+
+@pytest.mark.django_db
 def test_orders_empty_state(new_user_client):
     response = new_user_client.get(reverse('eventyay_common:orders'))
     assert response.status_code == 200
