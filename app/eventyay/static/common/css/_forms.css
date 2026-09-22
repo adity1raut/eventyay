@@ -485,6 +485,11 @@ input[type="number"]:not(.show-spinner) {
   margin-bottom: 1rem;
 }
 
+.speaker-avatar-preview {
+  width: 100px;
+  height: auto;
+}
+
 .answer-file-input {
   .answer-file-input-preview {
     width: fit-content;

@@ -168,6 +168,14 @@ def test_reviewers_only_see_other_proposals_they_may_review(event, speaker, subm
     ]
     assert [other.title for other in for_reviewers[0].other_submissions] == ['In my tracks']
 
+    with scope(event=event):
+        assert [other.viewer_url for other in for_orga[0].other_submissions] == [
+            other.orga_urls.base for other in for_orga[0].other_submissions
+        ]
+        assert [other.viewer_url for other in for_reviewers[0].other_submissions] == [
+            other.orga_urls.reviews for other in for_reviewers[0].other_submissions
+        ]
+
 
 @pytest.mark.django_db
 def test_imported_questions_are_left_out(event, speaker, submission, orga_user):

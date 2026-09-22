@@ -17,7 +17,7 @@
     <p class="card-text">
       <strong>{% translate 'Avatar' %}:</strong>
       <a href="{{ speaker.avatar_url }}" data-lightbox>
-        <img loading="lazy" width="100px" src="{% if speaker.avatar %}{{ speaker.avatar|thumbnail:"default" }}{% else %}{{ speaker.avatar_url }}{% endif %}" alt="{% translate "The speaker's profile picture" %}">
+        <img loading="lazy" class="speaker-avatar-preview" src="{% if speaker.avatar %}{{ speaker.avatar|thumbnail:"default" }}{% else %}{{ speaker.avatar_url }}{% endif %}" alt="{% translate "The speaker's profile picture" %}">
       </a>
     </p>
   {% endif %}
@@ -68,7 +68,7 @@
       <ul>
         {% for other in speaker.other_submissions %}
           <li>
-            <a href="{{ other.orga_urls.base }}">{{ other.title }}</a>
+            <a href="{{ other.viewer_url }}">{{ other.title }}</a>
             {% include "cfp/event/fragment_state.html" with state=other.state as_badge=True %}
           </li>
         {% endfor %}

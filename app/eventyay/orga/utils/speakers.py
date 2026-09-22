@@ -38,6 +38,16 @@ class SubmissionSpeaker:
     other_submissions: tuple[Submission, ...]
 
 
+def _with_viewer_url(other: Submission, *, for_reviewers: bool) -> Submission:
+    """Point one of a speaker's other proposals at the page the viewer may open.
+
+    Reviewers have no access to the organiser submission view, so their links
+    lead to that proposal's review page instead of failing authorisation.
+    """
+    other.viewer_url = other.orga_urls.reviews if for_reviewers else other.orga_urls.base
+    return other
+
+
 def get_submission_speakers(submission: Submission, *, for_reviewers: bool, user: User) -> list[SubmissionSpeaker]:
     """Collect the full speaker information for a proposal.
 
@@ -47,7 +57,8 @@ def get_submission_speakers(submission: Submission, *, for_reviewers: bool, user
 
     ``user`` is the viewer. For reviewers, the speaker's other proposals are
     limited to the ones that viewer is allowed to review, so the fragment never
-    leaks the title or state of a proposal outside their tracks or assignment.
+    leaks the title or state of a proposal outside their tracks or assignment,
+    and each one is linked to the page that viewer may actually open.
     """
     event = submission.event
     with scope(event=event):
@@ -91,7 +102,9 @@ def get_submission_speakers(submission: Submission, *, for_reviewers: bool, user
                     answers=tuple(speaker._speaker_answers),
                     social_links=tuple(profile.social_links.all()) if profile else (),
                     other_submissions=tuple(
-                        other for other in speaker._event_submissions if other.code != submission.code
+                        _with_viewer_url(other, for_reviewers=for_reviewers)
+                        for other in speaker._event_submissions
+                        if other.code != submission.code
                     ),
                 )
             )
