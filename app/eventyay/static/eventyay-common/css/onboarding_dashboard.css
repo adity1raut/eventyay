@@ -382,6 +382,10 @@
   transform: scale(1.06);
 }
 
+/* Primary blue is the default tone. The organiser dashboard builds this
+   modifier from a dynamic `action.tone`, so a tone without a rule of its own
+   still renders as a normal component icon instead of an unstyled box. */
+.cd-action-card__icon,
 .cd-action-card__icon--primary {
   color: var(--cd-primary);
   background: color-mix(in srgb, var(--cd-primary) 14%, white);

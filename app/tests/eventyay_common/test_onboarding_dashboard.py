@@ -1,9 +1,12 @@
 """Tests for the new-user onboarding dashboard."""
 
+import re
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
 from django.urls import reverse
 from django.utils import timezone
 from eventyay.base.models import Event, Organizer, Team
@@ -140,6 +143,22 @@ def test_event_card_component_buttons_share_one_style(organizer_client, event):
     content = response.content.decode()
     assert content.count('class="cd-module-btn"') == 3
     assert 'cd-module-btn--' not in content
+
+
+@pytest.mark.django_db
+def test_every_quick_action_icon_tone_is_styled(organizer_client, event):
+    """The quick action icons build their class from a dynamic ``action.tone``.
+
+    A tone whose rule is dropped from the stylesheet renders as an unstyled
+    box, so every tone the dashboard emits must still resolve to a style.
+    """
+    response = organizer_client.get(reverse('eventyay_common:dashboard'))
+    rendered_tones = set(re.findall(r'cd-action-card__icon--([a-z-]+)', response.content.decode()))
+    assert rendered_tones, 'the organiser dashboard should render quick action icons'
+
+    css = Path(finders.find('eventyay-common/css/onboarding_dashboard.css')).read_text()
+    styled_tones = set(re.findall(r'\.cd-action-card__icon--([a-z-]+)', css))
+    assert rendered_tones <= styled_tones
 
 
 @pytest.mark.django_db
