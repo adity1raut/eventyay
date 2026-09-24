@@ -145,20 +145,32 @@ def test_event_card_component_buttons_share_one_style(organizer_client, event):
     assert 'cd-module-btn--' not in content
 
 
+def _declarations_for(css: str, *selectors: str) -> str:
+    """The declarations of every rule that names one of ``selectors``."""
+    css = re.sub(r'/\*.*?\*/', '', css, flags=re.DOTALL)
+    wanted = set(selectors)
+    blocks = []
+    for rule in re.finditer(r'([^{}]*)\{([^{}]*)\}', css):
+        if wanted & {name.strip() for name in rule.group(1).split(',')}:
+            blocks.append(rule.group(2))
+    return '\n'.join(blocks)
+
+
 @pytest.mark.django_db
-def test_every_quick_action_icon_tone_is_styled(organizer_client, event):
+def test_quick_action_icons_never_render_untoned(organizer_client, event):
     """The quick action icons build their class from a dynamic ``action.tone``.
 
-    A tone whose rule is dropped from the stylesheet renders as an unstyled
-    box, so every tone the dashboard emits must still resolve to a style.
+    A tone without a rule of its own falls back to the base class, so every
+    tone the dashboard renders must be coloured by one of the two.
     """
     response = organizer_client.get(reverse('eventyay_common:dashboard'))
     rendered_tones = set(re.findall(r'cd-action-card__icon--([a-z-]+)', response.content.decode()))
     assert rendered_tones, 'the organiser dashboard should render quick action icons'
 
     css = Path(finders.find('eventyay-common/css/onboarding_dashboard.css')).read_text()
-    styled_tones = set(re.findall(r'\.cd-action-card__icon--([a-z-]+)', css))
-    assert rendered_tones <= styled_tones
+    for tone in sorted(rendered_tones):
+        declarations = _declarations_for(css, '.cd-action-card__icon', f'.cd-action-card__icon--{tone}')
+        assert 'background:' in declarations, f'the {tone} icon tone renders unstyled'
 
 
 @pytest.mark.django_db
