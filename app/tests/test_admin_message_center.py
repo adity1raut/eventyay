@@ -500,6 +500,18 @@ def test_send_test_email_ignores_delivery_schedule(admin_client):
 
 
 @pytest.mark.django_db
+def test_send_test_email_ignores_incomplete_schedule(admin_client):
+    data = _compose_data(delivery_mode='later', scheduled_at_0='2099-01-01', scheduled_at_1='')
+    with patch('eventyay.control.views.admin_messages.mail_send_task') as task:
+        response = admin_client.post('/admin/messages/compose/', data=data)
+    form = response.context['form']
+    assert not form.errors
+    task.apply_async.assert_called_once()
+    assert not form.fields['scheduled_at'].disabled
+    assert form['scheduled_at'].value() == ['2099-01-01', '']
+
+
+@pytest.mark.django_db
 def test_send_test_email_requires_test_address(admin_client):
     with patch('eventyay.control.views.admin_messages.mail_send_task') as task:
         response = admin_client.post('/admin/messages/compose/', data=_compose_data(test_email=''))
