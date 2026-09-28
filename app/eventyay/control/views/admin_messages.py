@@ -843,7 +843,7 @@ class AdminMessageComposeView(AdministratorPermissionRequiredMixin, FormView):
     def _send_test_email(self, form, test_email: str):
 
         cd = form.cleaned_data
-        subject = cd.get('subject', _('(No subject)'))
+        subject = cd.get('subject') or str(_('(No subject)'))
         body = _get_message_text(cd)
 
         sample = dict(SAMPLE_CONTEXT)

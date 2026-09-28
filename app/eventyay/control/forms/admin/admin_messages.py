@@ -395,12 +395,19 @@ class AdminComposeForm(ScheduledAtValidationMixin, forms.Form):
             self.fields['message'].required = False
 
         if test_send:
-            # A test email only goes to the test address, so the audience and delivery settings do not apply.
-            self.fields['recipient_group'].required = False
+            # A test email only goes to the test address, so the audience, content and delivery settings
+            # are optional.
+            self._set_test_send_fields_required(False)
             self.fields['test_email'].required = True
             self.fields['test_email'].error_messages['required'] = _('Please enter a test email address.')
             # Disabled so a half-filled schedule cannot fail the date/time field itself.
             self.fields['scheduled_at'].disabled = True
+
+    def _set_test_send_fields_required(self, required: bool):
+        self.fields['recipient_group'].required = required
+        self.fields['subject'].required = required
+        # The i18n message field checks ``one_required`` instead of ``required``.
+        self.fields['message'].one_required = required
 
     def clean_scheduled_at(self):
         if self.test_send:
@@ -410,9 +417,9 @@ class AdminComposeForm(ScheduledAtValidationMixin, forms.Form):
     def clean(self):
         cleaned = super().clean()
         if self.test_send:
-            # Only skipped while validating, so the page shown afterwards still marks it as required
+            # Only skipped while validating, so the page shown afterwards still marks these as required
             # and keeps the schedule the admin entered.
-            self.fields['recipient_group'].required = True
+            self._set_test_send_fields_required(True)
             self.fields['scheduled_at'].disabled = False
             return cleaned
         if cleaned is None:

@@ -522,15 +522,24 @@ def test_send_test_email_requires_test_address(admin_client):
 
 
 @pytest.mark.django_db
-def test_send_test_email_still_requires_content(admin_client):
+def test_send_test_email_without_content(admin_client):
     with patch('eventyay.control.views.admin_messages.mail_send_task') as task:
-        response = admin_client.post('/admin/messages/compose/', data=_compose_data(subject=''))
-    assert 'subject' in response.context['form'].errors
-    task.apply_async.assert_not_called()
+        response = admin_client.post('/admin/messages/compose/', data=_compose_data(subject='', message_0=''))
+    form = response.context['form']
+    assert not form.errors
+    task.apply_async.assert_called_once()
+    assert task.apply_async.call_args.kwargs['kwargs']['subject'] == '[TEST] (No subject)'
+    assert form.fields['subject'].required
+    assert form.fields['message'].one_required
 
 
 @pytest.mark.django_db
-def test_send_still_requires_recipient_group(admin_client):
-    response = admin_client.post('/admin/messages/compose/', data=_compose_data(action='send'))
-    assert 'recipient_group' in response.context['form'].errors
+def test_send_still_requires_recipient_group_and_content(admin_client):
+    response = admin_client.post(
+        '/admin/messages/compose/', data=_compose_data(action='send', subject='', message_0='')
+    )
+    form = response.context['form']
+    assert 'recipient_group' in form.errors
+    assert 'subject' in form.errors
+    assert 'message' in form.errors
     assert not AdminEmailQueue.objects.exists()
