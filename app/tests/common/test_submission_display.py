@@ -178,7 +178,7 @@ def test_reviewers_only_see_other_proposals_they_may_review(event, speaker, subm
 
 
 @pytest.mark.django_db
-def test_imported_questions_are_left_out(event, speaker, submission, orga_user):
+def test_imported_questions_are_included(event, speaker, submission, orga_user):
     with scopes_disabled():
         speaker_question = make_question(event, TalkQuestionTarget.SPEAKER, 'Imported speaker field')
         speaker_question.is_imported = True
@@ -193,8 +193,8 @@ def test_imported_questions_are_left_out(event, speaker, submission, orga_user):
         speakers = get_submission_speakers(submission, for_reviewers=False, user=orga_user)
         answers = get_submission_answers(submission, for_reviewers=False)
 
-    assert speakers[0].answers == ()
-    assert answers == []
+    assert [answer.answer for answer in speakers[0].answers] == ['From the import']
+    assert [answer.answer for answer in answers] == ['From the import']
 
 
 @pytest.mark.django_db

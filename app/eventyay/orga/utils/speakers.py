@@ -66,7 +66,6 @@ def get_submission_speakers(submission: Submission, *, for_reviewers: bool, user
             Answer.objects.filter(
                 question__event=event,
                 question__active=True,
-                question__is_imported=False,
                 question__target=TalkQuestionTarget.SPEAKER,
             )
             .select_related('question')
@@ -128,7 +127,6 @@ def get_submission_answers(submission: Submission, *, for_reviewers: bool) -> li
         questions = TalkQuestion.all_objects.filter(
             event=event,
             active=True,
-            is_imported=False,
             target=TalkQuestionTarget.SUBMISSION,
         )
         questions = exclude_session_video_from_cfp_questions(questions)
