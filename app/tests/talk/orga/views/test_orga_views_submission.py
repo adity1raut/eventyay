@@ -1,10 +1,12 @@
 import datetime as dt
+import io
 import json
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils.timezone import now
 from django_scopes import scope
+from PIL import Image
 
 from eventyay.base.models.log import ActivityLog
 from eventyay.base.models import Answer, Submission, SubmissionStates
@@ -409,6 +411,27 @@ def test_orga_content_tab_shows_country_name(orga_client, event, submission, que
     response = orga_client.get(submission.orga_urls.base)
 
     assert "Germany" in response.text
+
+
+@pytest.mark.django_db
+def test_reviews_tab_shows_speaker_avatar_once(review_client, event, submission):
+    image = io.BytesIO()
+    Image.new("RGB", (64, 64), (88, 166, 255)).save(image, format="PNG")
+    with scope(event=event):
+        event.cfp.fields["avatar"] = {"visibility": "optional"}
+        event.cfp.save()
+        speaker = submission.speakers.first()
+        speaker.avatar.save(
+            "avatar.png", SimpleUploadedFile("avatar.png", image.getvalue())
+        )
+
+    response = review_client.get(submission.orga_urls.reviews)
+
+    details = response.text.index('class="speaker-details"')
+    speaker_name = response.text[response.text.rindex("<label", 0, details) : details]
+    assert speaker.get_display_name() in speaker_name
+    assert "<img" not in speaker_name
+    assert "speaker-avatar-preview" in response.text
 
 
 @pytest.mark.django_db

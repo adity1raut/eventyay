@@ -143,7 +143,7 @@
                             {% endif %}
                         </label>
                         <div class="col-md-9 mt-2 markdown-mt-0">
-                            <strong>{% include "orga/includes/user_name.html" with user=speaker.user lightbox=True %}</strong>
+                            <strong>{{ speaker.user.get_display_name }}</strong>
                             {% include "orga/includes/submission_speaker_details.html" with speaker=speaker %}
                         </div>
                     </div>
