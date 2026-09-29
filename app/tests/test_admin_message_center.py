@@ -576,6 +576,18 @@ def test_send_test_email_ignores_incomplete_schedule(admin_client):
 
 
 @pytest.mark.django_db
+def test_send_test_email_ignores_invalid_audience_filters(admin_client):
+    data = _compose_data(event_date_from='not-a-date', selected_events='999999')
+    with patch('eventyay.control.views.admin_messages.mail_send_task') as task:
+        response = admin_client.post('/admin/messages/compose/', data=data)
+    form = response.context['form']
+    assert not form.errors
+    task.apply_async.assert_called_once()
+    assert not form.fields['event_date_from'].disabled
+    assert form['event_date_from'].value() == 'not-a-date'
+
+
+@pytest.mark.django_db
 def test_send_test_email_requires_test_address(admin_client):
     with patch('eventyay.control.views.admin_messages.mail_send_task') as task:
         response = admin_client.post('/admin/messages/compose/', data=_compose_data(test_email=''))
@@ -606,4 +618,12 @@ def test_send_still_requires_recipient_group_and_content(admin_client):
     assert 'recipient_group' in form.errors
     assert 'subject' in form.errors
     assert 'message' in form.errors
+    assert not AdminEmailQueue.objects.exists()
+
+
+@pytest.mark.django_db
+def test_send_still_validates_audience_filters(admin_client):
+    data = _compose_data(action='send', recipient_group=AdminRecipientGroup.ALL_USERS, event_date_from='not-a-date')
+    response = admin_client.post('/admin/messages/compose/', data=data)
+    assert 'event_date_from' in response.context['form'].errors
     assert not AdminEmailQueue.objects.exists()
