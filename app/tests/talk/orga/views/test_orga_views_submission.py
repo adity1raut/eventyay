@@ -342,6 +342,36 @@ def test_orga_speaker_page_excludes_submission_answers(
 
 
 @pytest.mark.django_db
+def test_orga_speaker_page_renders_shared_speaker_details(
+    orga_client, submission, other_submission, speaker_answer
+):
+    with scope(event=submission.event):
+        other_submission.speakers.add(submission.speakers.first())
+
+    response = orga_client.get(submission.orga_urls.speakers)
+
+    assert response.status_code == 200
+    assert 'class="speaker-details"' in response.text
+    assert speaker_answer.question.question in response.text
+    assert f'href="{other_submission.orga_urls.base}"' in response.text
+
+
+@pytest.mark.django_db
+def test_reviewer_speaker_page_links_other_proposals_to_reviews(
+    review_client, submission, other_submission
+):
+    with scope(event=submission.event):
+        other_submission.speakers.add(submission.speakers.first())
+
+    response = review_client.get(submission.orga_urls.speakers)
+
+    assert response.status_code == 200
+    assert 'class="speaker-details"' in response.text
+    assert f'href="{other_submission.orga_urls.reviews}"' in response.text
+    assert f'href="{other_submission.orga_urls.base}"' not in response.text
+
+
+@pytest.mark.django_db
 def test_orga_can_add_speakers_with_incorrect_address(orga_client, submission):
     assert submission.speakers.count() == 1
     response = orga_client.post(

@@ -133,7 +133,10 @@ class AnswerFileInput(ClearableBasenameFileInput):
         ctx = super().get_context(name, value, attrs)
         widget = ctx['widget']
         widget_attrs = widget.get('attrs') or {}
-        alt = widget_attrs.pop('alt', None) or (self.attrs or {}).get('alt') or _('Uploaded image')
+        alt = widget_attrs.get('alt') or _('Uploaded image')
+        # ``alt`` is only meant for the preview image, so leave it off the file input without
+        # changing the attrs this widget renders from.
+        widget['attrs'] = {key: value for key, value in widget_attrs.items() if key != 'alt'}
         file_name = Path(value.name).name if widget['is_initial'] else ''
         widget['alt_text'] = alt
         widget['file_name'] = file_name

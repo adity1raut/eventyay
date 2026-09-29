@@ -4,10 +4,11 @@
 {% comment %}
   The complete submitted information for one speaker, shared by the organiser
   submission Speakers and Reviews tabs so the two cannot drift apart. Expects
-  `speaker` (a SubmissionSpeaker) and `can_view_speaker_emails`.
+  `speaker` (a SubmissionSpeaker) and `can_view_speaker_emails`. A speaker
+  without a profile for this event has no biography or availabilities.
 {% endcomment %}
 <div class="speaker-details">
-  {% if request.event.cfp.request_biography and speaker.profile.biography %}
+  {% if request.event.cfp.request_biography and speaker.profile and speaker.profile.biography %}
     <p class="card-text">
       <strong>{% translate 'Biography' %}:</strong>
       {{ speaker.profile.biography|rich_text }}
@@ -44,18 +45,20 @@
       {% include "orga/includes/speaker_social_links.html" with social_links=speaker.social_links %}
     </div>
   {% endif %}
-  {% with speaker.profile.availabilities.all as availabilities %}
-    {% if request.event.cfp.request_availabilities and availabilities %}
-      <p class="card-text">
-        <strong>{% translate 'Availabilities' %}:</strong><br>
-        {% for availability in availabilities %}
-          {% translate 'Start time' %}: {{ availability.start }}<br>
-          {% translate 'End time' %}: {{ availability.end }}<br>
-          <br>
-        {% endfor %}
-      </p>
-    {% endif %}
-  {% endwith %}
+  {% if request.event.cfp.request_availabilities and speaker.profile %}
+    {% with speaker.profile.availabilities.all as availabilities %}
+      {% if availabilities %}
+        <p class="card-text">
+          <strong>{% translate 'Availabilities' %}:</strong><br>
+          {% for availability in availabilities %}
+            {% translate 'Start time' %}: {{ availability.start }}<br>
+            {% translate 'End time' %}: {{ availability.end }}<br>
+            <br>
+          {% endfor %}
+        </p>
+      {% endif %}
+    {% endwith %}
+  {% endif %}
   {% if speaker.answers %}
     <div class="card-text submission-answers">
       <strong>{% translate 'Speaker Information' %}:</strong>

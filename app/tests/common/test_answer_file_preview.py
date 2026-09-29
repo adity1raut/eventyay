@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from django.template.loader import render_to_string
 
@@ -82,6 +84,16 @@ def test_widget_previews_the_current_image_instead_of_its_name():
     assert 'speaker_photo_ab12cd3.jpg<' not in html
     assert 'alt="Speaker image"' in html
     assert 'alt="Speaker image" type="file"' not in html
+
+
+def test_widget_keeps_its_alt_text_across_renders():
+    widget = AnswerFileInput(attrs={'alt': 'Speaker image'})
+    for _ in range(2):
+        html = widget.render('question_1', StubFile(IMAGE_PATH, IMAGE_URL), attrs={'id': 'id_question_1'})
+        assert 'alt="Speaker image"' in html
+        file_input = re.search(r'<input type="file"[^>]*>', html).group(0)
+        assert 'alt=' not in file_input
+    assert widget.attrs['alt'] == 'Speaker image'
 
 
 def test_widget_keeps_a_named_link_for_other_files():
