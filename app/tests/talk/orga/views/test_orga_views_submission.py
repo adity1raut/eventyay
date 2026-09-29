@@ -7,7 +7,7 @@ from django.utils.timezone import now
 from django_scopes import scope
 
 from eventyay.base.models.log import ActivityLog
-from eventyay.base.models import Submission, SubmissionStates
+from eventyay.base.models import Answer, Submission, SubmissionStates
 from eventyay.base.models.question import TalkQuestionRequired as QuestionRequired, TalkQuestionVariant as QuestionVariant
 from eventyay.common.session_video import (
     SESSION_VIDEO_IMPORT_KEY,
@@ -369,6 +369,34 @@ def test_reviewer_speaker_page_links_other_proposals_to_reviews(
     assert 'class="speaker-details"' in response.text
     assert f'href="{other_submission.orga_urls.reviews}"' in response.text
     assert f'href="{other_submission.orga_urls.base}"' not in response.text
+
+
+@pytest.mark.django_db
+def test_orga_submission_tabs_show_date_answers(
+    orga_client, event, submission, question, speaker_question
+):
+    with scope(event=event):
+        question.variant = QuestionVariant.DATE
+        question.save()
+        speaker_question.variant = QuestionVariant.DATETIME
+        speaker_question.save()
+        Answer.objects.create(
+            question=question, submission=submission, answer="2031-12-24"
+        )
+        Answer.objects.create(
+            question=speaker_question,
+            person=submission.speakers.first(),
+            answer="2031-12-25T10:30:00+00:00",
+        )
+
+    content = orga_client.get(submission.orga_urls.base)
+    speakers = orga_client.get(submission.orga_urls.speakers)
+    reviews = orga_client.get(submission.orga_urls.reviews)
+
+    assert "2031-12-24" in content.text
+    assert "2031-12-25T10:30:00+00:00" in speakers.text
+    assert "2031-12-24" in reviews.text
+    assert "2031-12-25T10:30:00+00:00" in reviews.text
 
 
 @pytest.mark.django_db
