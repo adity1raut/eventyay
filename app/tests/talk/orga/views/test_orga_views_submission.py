@@ -400,6 +400,18 @@ def test_orga_submission_tabs_show_date_answers(
 
 
 @pytest.mark.django_db
+def test_orga_content_tab_shows_country_name(orga_client, event, submission, question):
+    with scope(event=event):
+        question.variant = QuestionVariant.COUNTRY
+        question.save()
+        Answer.objects.create(question=question, submission=submission, answer="DE")
+
+    response = orga_client.get(submission.orga_urls.base)
+
+    assert "Germany" in response.text
+
+
+@pytest.mark.django_db
 def test_orga_can_add_speakers_with_incorrect_address(orga_client, submission):
     assert submission.speakers.count() == 1
     response = orga_client.post(

@@ -11,6 +11,8 @@
     {% else %}
         {% translate "No response" %}
     {% endif %}
+{% elif answer.question.variant == "country" %}
+    {{ answer.answer_string }}
 {% elif answer %}
     {{ answer.answer|rich_text }}
 {% else %}
