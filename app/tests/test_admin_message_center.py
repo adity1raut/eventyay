@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 from django.contrib.contenttypes.models import ContentType
+from django.core import mail as djmail
 from django.urls import reverse
 from django.utils.timezone import now
 
@@ -15,6 +16,9 @@ from eventyay.base.models.admin_mail import (
 )
 from eventyay.base.models.auth import StaffSession
 from eventyay.base.models.log import LogEntry
+from eventyay.base.services.mail import get_mail_backend
+from eventyay.base.settings import GlobalSettingsObject
+from eventyay.common.exceptions import SendMailException
 from eventyay.control.forms.admin.admin_messages import AdminComposeForm
 
 
@@ -548,8 +552,8 @@ def test_send_test_email_without_recipient_group(admin_client):
         response = admin_client.post('/admin/messages/compose/', data=_compose_data())
     assert response.status_code == 200
     assert not response.context['form'].errors
-    task.apply_async.assert_called_once()
-    assert task.apply_async.call_args.kwargs['kwargs']['to'] == ['tester@example.com']
+    task.assert_called_once()
+    assert task.call_args.kwargs['to'] == ['tester@example.com']
     assert 'Test email sent successfully to tester@example.com.' in response.content.decode()
     assert not AdminEmailQueue.objects.exists()
     assert response.context['form'].fields['recipient_group'].required
@@ -560,7 +564,7 @@ def test_send_test_email_ignores_delivery_schedule(admin_client):
     with patch('eventyay.control.views.admin_messages.mail_send_task') as task:
         response = admin_client.post('/admin/messages/compose/', data=_compose_data(delivery_mode='later'))
     assert not response.context['form'].errors
-    task.apply_async.assert_called_once()
+    task.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -570,7 +574,7 @@ def test_send_test_email_ignores_incomplete_schedule(admin_client):
         response = admin_client.post('/admin/messages/compose/', data=data)
     form = response.context['form']
     assert not form.errors
-    task.apply_async.assert_called_once()
+    task.assert_called_once()
     assert not form.fields['scheduled_at'].disabled
     assert form['scheduled_at'].value() == ['2099-01-01', '']
 
@@ -582,7 +586,7 @@ def test_send_test_email_ignores_invalid_audience_filters(admin_client):
         response = admin_client.post('/admin/messages/compose/', data=data)
     form = response.context['form']
     assert not form.errors
-    task.apply_async.assert_called_once()
+    task.assert_called_once()
     assert not form.fields['event_date_from'].disabled
     assert form['event_date_from'].value() == 'not-a-date'
 
@@ -594,7 +598,7 @@ def test_send_test_email_requires_test_address(admin_client):
     form = response.context['form']
     assert form.errors['test_email'] == ['Please enter a test email address.']
     assert 'recipient_group' not in form.errors
-    task.apply_async.assert_not_called()
+    task.assert_not_called()
 
 
 @pytest.mark.django_db
@@ -603,10 +607,40 @@ def test_send_test_email_without_content(admin_client):
         response = admin_client.post('/admin/messages/compose/', data=_compose_data(subject='', message_0=''))
     form = response.context['form']
     assert not form.errors
-    task.apply_async.assert_called_once()
-    assert task.apply_async.call_args.kwargs['kwargs']['subject'] == '[TEST] (No subject)'
+    task.assert_called_once()
+    assert task.call_args.kwargs['subject'] == '[TEST] (No subject)'
     assert form.fields['subject'].required
     assert form.fields['message'].one_required
+
+
+@pytest.mark.django_db
+def test_send_test_email_is_delivered_right_away(admin_client):
+    response = admin_client.post('/admin/messages/compose/', data=_compose_data())
+    assert 'Test email sent successfully to tester@example.com.' in response.content.decode()
+    assert len(djmail.outbox) == 1
+    assert djmail.outbox[0].to == ['tester@example.com']
+    assert djmail.outbox[0].subject == '[TEST] Platform update'
+
+
+@pytest.mark.django_db
+def test_send_test_email_uses_platform_mail_settings(admin_client):
+    GlobalSettingsObject().settings.set('mail_from', 'platform@eventyay.test')
+    with patch('eventyay.base.services.mail.get_mail_backend', wraps=get_mail_backend) as backend:
+        admin_client.post('/admin/messages/compose/', data=_compose_data())
+    backend.assert_called_once()
+    assert djmail.outbox[0].from_email == 'eventyay <platform@eventyay.test>'
+
+
+@pytest.mark.django_db
+def test_send_test_email_reports_mail_server_errors(admin_client):
+    with patch(
+        'eventyay.control.views.admin_messages.mail_send_task',
+        side_effect=SendMailException('Recipient refused'),
+    ):
+        response = admin_client.post('/admin/messages/compose/', data=_compose_data())
+    content = response.content.decode()
+    assert 'Failed to send test email. Please check your mail configuration.' in content
+    assert 'Test email sent successfully' not in content
 
 
 @pytest.mark.django_db

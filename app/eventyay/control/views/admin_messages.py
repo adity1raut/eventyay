@@ -853,19 +853,15 @@ class AdminMessageComposeView(AdministratorPermissionRequiredMixin, FormView):
             body = body.replace('{' + key + '}', value)
 
         try:
-            mail_send_task.apply_async(
-                kwargs={
-                    'to': [test_email],
-                    'subject': f'[TEST] {subject}',
-                    'body': body,
-                    'html': AdminEmailQueue.make_html(body),
-                    'reply_to': [cd.get('reply_to')] if cd.get('reply_to') else [],
-                    'event': None,
-                    'cc': [],
-                    'bcc': [],
-                    'attachments': None,
-                },
-                ignore_result=True,
+            # Sent right away instead of queued, so the message below tells the admin whether the mail
+            # server accepted it.
+            mail_send_task(
+                to=[test_email],
+                subject=f'[TEST] {subject}',
+                body=body,
+                html=AdminEmailQueue.make_html(body),
+                reply_to=[cd.get('reply_to')] if cd.get('reply_to') else [],
+                event=None,
             )
             messages.success(
                 self.request,
