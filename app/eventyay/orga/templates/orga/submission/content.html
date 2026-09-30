@@ -39,7 +39,7 @@
             <div class="col-md-9">
                 <strong class="submission-title-with-track">
                     <span class="color-square" style="--track-color: {{ submission.track.color|default:'#cccccc' }}"{% if submission.track %} title="{{ submission.track.name }}"{% endif %}></span>
-                    <span>{{ submission.title }}</span>
+                    <span>{% if can_view_speakers %}{{ submission.title }}{% else %}{{ submission.anonymised.title|default:submission.title }}{% endif %}</span>
                 </strong>
             </div>
         </div>
@@ -116,7 +116,11 @@
             <div class="form-group row">
                 <label class="col-md-3 col-form-label">{% translate "Abstract" %}</label>
                 <div class="col-md-9">
-                    {{ submission.abstract|rich_text }}
+                    {% if can_view_speakers %}
+                        {{ submission.abstract|rich_text }}
+                    {% else %}
+                        {{ submission.anonymised.abstract|default:submission.abstract|rich_text }}
+                    {% endif %}
                 </div>
             </div>
         {% endif %}
@@ -125,7 +129,11 @@
             <div class="form-group row">
                 <label class="col-md-3 col-form-label">{% translate "Description" %}</label>
                 <div class="col-md-9">
-                    {{ submission.description|rich_text }}
+                    {% if can_view_speakers %}
+                        {{ submission.description|rich_text }}
+                    {% else %}
+                        {{ submission.anonymised.description|default:submission.description|rich_text }}
+                    {% endif %}
                 </div>
             </div>
         {% endif %}
@@ -134,7 +142,11 @@
             <div class="form-group row">
                 <label class="col-md-3 col-form-label">{% translate "Notes" %}</label>
                 <div class="col-md-9">
-                    {{ submission.notes|rich_text }}
+                    {% if can_view_speakers %}
+                        {{ submission.notes|rich_text }}
+                    {% else %}
+                        {{ submission.anonymised.notes|default:submission.notes|rich_text }}
+                    {% endif %}
                 </div>
             </div>
         {% endif %}
@@ -194,7 +206,7 @@
                 <label class="col-md-3 col-form-label">{% translate "Session image" %}</label>
                 <div class="col-md-9">
                     <a href="{{ submission.image.url }}" target="_blank">
-                        <img src="{{ submission.image.url }}" alt="{{ submission.title }}">
+                        <img src="{{ submission.image.url }}" alt="{% if can_view_speakers %}{{ submission.title }}{% else %}{{ submission.anonymised.title|default:submission.title }}{% endif %}">
                     </a>
                 </div>
             </div>
