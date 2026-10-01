@@ -142,6 +142,7 @@
 import { computed, defineAsyncComponent } from 'vue'
 import moment from 'moment-timezone'
 import MarkdownIt from 'markdown-it'
+import { resolveSavedTimezone } from '~/savedTimezone'
 import ScheduleToolbar from '~/components/ScheduleToolbar'
 import LinearSchedule from '~/components/LinearSchedule'
 import GridScheduleWrapper from '~/components/GridScheduleWrapper'
@@ -1089,9 +1090,7 @@ export default {
 			this.scrollParentWidth = document.body.offsetWidth
 		},
 		getSavedTimezone () {
-			// Any timezone from the picker can be saved, not only the event or browser timezone
-			const saved = localStorage.getItem(`${this.eventSlug}_timezone`)
-			return saved && moment.tz.zone(saved) ? saved : this.schedule.timezone
+			return resolveSavedTimezone(localStorage.getItem(`${this.eventSlug}_timezone`), this.schedule.timezone)
 		},
 		saveTimezone () {
 			localStorage.setItem(`${this.eventSlug}_timezone`, this.currentTimezone)
