@@ -6,9 +6,9 @@
 {% endcomment %}
 {% for answer in answers %}
   {% if answer.is_answered %}
-    <div class="submission-answer">
-      <strong>{{ answer.question.question }}</strong>
-      <div class="submission-answer-value">
+    <div class="submission-detail submission-answer">
+      <strong class="submission-detail-label">{{ answer.question.question }}</strong>
+      <div class="submission-detail-value">
         {% if answer.question.variant == 'boolean' %}
           {% if answer.boolean_answer %}
             <span class="value-pill value-pill--positive"><i class="fa fa-check text-success"></i> {% translate 'Yes' %}</span>

@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load phone_format %}
 {% load rich_text %}
 
 {% if answer.question.variant == "file" %}
@@ -13,6 +14,12 @@
     {% endif %}
 {% elif answer.question.variant == "country" %}
     {{ answer.answer_string }}
+{% elif answer.question.variant == "date" %}
+    {% if answer.answer_date %}{{ answer.answer_date|date:"DATE_FORMAT" }}{% else %}{{ answer.answer }}{% endif %}
+{% elif answer.question.variant == "datetime" %}
+    {% if answer.answer_datetime %}{{ answer.answer_datetime|date:"DATE_FORMAT" }}, {{ answer.answer_datetime|time:"TIME_FORMAT" }}{% else %}{{ answer.answer }}{% endif %}
+{% elif answer.question.variant == "tel" %}
+    {{ answer.answer|phone_format }}
 {% elif answer %}
     {{ answer.answer|rich_text }}
 {% else %}

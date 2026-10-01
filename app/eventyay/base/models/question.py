@@ -1,6 +1,8 @@
+from contextlib import suppress
 from pathlib import Path
 
 from django.db import models
+from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.functional import cached_property
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
@@ -481,6 +483,20 @@ class Answer(PretalxModel):
         if not self.answer_file:
             return False
         return Path(self.answer_file.name).suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
+
+    @property
+    def answer_date(self):
+        """A date question's answer as a ``date``, or ``None`` if it does not parse."""
+        with suppress(ValueError):
+            return parse_date(self.answer or '')
+        return None
+
+    @property
+    def answer_datetime(self):
+        """A date and time question's answer as a ``datetime``, or ``None`` if it does not parse."""
+        with suppress(ValueError):
+            return parse_datetime(self.answer or '')
+        return None
 
     @property
     def answer_string(self):

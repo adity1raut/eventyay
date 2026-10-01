@@ -9,7 +9,7 @@ from django_scopes import scope
 from PIL import Image
 
 from eventyay.base.models.log import ActivityLog
-from eventyay.base.models import Answer, Submission, SubmissionStates
+from eventyay.base.models import Answer, Availability, Submission, SubmissionStates
 from eventyay.base.models.question import TalkQuestionRequired as QuestionRequired, TalkQuestionVariant as QuestionVariant
 from eventyay.common.session_video import (
     SESSION_VIDEO_IMPORT_KEY,
@@ -378,6 +378,9 @@ def test_orga_submission_tabs_show_date_answers(
     orga_client, event, submission, question, speaker_question
 ):
     with scope(event=event):
+        event.timezone = "Europe/Berlin"
+        event.save()
+        event.settings.timezone = "Europe/Berlin"
         question.variant = QuestionVariant.DATE
         question.save()
         speaker_question.variant = QuestionVariant.DATETIME
@@ -388,17 +391,77 @@ def test_orga_submission_tabs_show_date_answers(
         Answer.objects.create(
             question=speaker_question,
             person=submission.speakers.first(),
-            answer="2031-12-25T10:30:00+00:00",
+            answer="2031-12-25 10:30:00+00:00",
         )
 
     content = orga_client.get(submission.orga_urls.base)
     speakers = orga_client.get(submission.orga_urls.speakers)
     reviews = orga_client.get(submission.orga_urls.reviews)
 
-    assert "2031-12-24" in content.text
-    assert "2031-12-25T10:30:00+00:00" in speakers.text
-    assert "2031-12-24" in reviews.text
-    assert "2031-12-25T10:30:00+00:00" in reviews.text
+    # Shown in words and in the event's timezone, not as the stored ISO string.
+    assert "Dec. 24, 2031" in content.text
+    assert "Dec. 25, 2031, 11:30" in speakers.text
+    assert "Dec. 24, 2031" in reviews.text
+    assert "Dec. 25, 2031, 11:30" in reviews.text
+    assert "10:30:00+00:00" not in speakers.text
+    assert "10:30:00+00:00" not in reviews.text
+
+
+@pytest.mark.django_db
+def test_orga_speakers_tab_shows_unparseable_date_answers_as_entered(
+    orga_client, event, submission, speaker_question
+):
+    with scope(event=event):
+        speaker_question.variant = QuestionVariant.DATE
+        speaker_question.save()
+        Answer.objects.create(
+            question=speaker_question,
+            person=submission.speakers.first(),
+            answer="next spring",
+        )
+
+    response = orga_client.get(submission.orga_urls.speakers)
+
+    assert "next spring" in response.text
+
+
+@pytest.mark.django_db
+def test_orga_speakers_tab_formats_phone_number(
+    orga_client, event, submission, speaker_question
+):
+    with scope(event=event):
+        speaker_question.variant = QuestionVariant.PHONE_NUMBER
+        speaker_question.save()
+        Answer.objects.create(
+            question=speaker_question,
+            person=submission.speakers.first(),
+            answer="+4915112345678",
+        )
+
+    response = orga_client.get(submission.orga_urls.speakers)
+
+    assert "+49 1511 2345678" in response.text
+
+
+@pytest.mark.django_db
+def test_orga_speakers_tab_shows_availabilities_as_time_ranges(
+    orga_client, event, submission
+):
+    with scope(event=event):
+        event.cfp.fields["availabilities"] = {"visibility": "optional"}
+        event.cfp.save()
+        profile = submission.speakers.first().event_profile(event)
+        Availability.objects.create(
+            event=event,
+            person=profile,
+            start=dt.datetime(2031, 12, 24, 9, 0, tzinfo=dt.UTC),
+            end=dt.datetime(2031, 12, 24, 17, 0, tzinfo=dt.UTC),
+        )
+
+    response = orga_client.get(submission.orga_urls.speakers)
+
+    assert "Dec. 24, 2031, 09:00 – 17:00" in response.text
+    assert "Start time" not in response.text
 
 
 @pytest.mark.django_db
