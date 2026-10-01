@@ -23,7 +23,7 @@
 								.time-density-menu.vue-dropdown(v-if="showTimeDensityMenu")
 									.density-option(v-for="mins in [5, 10, 15, 30, 60]", @click.stop="timeDensityMinutes = mins; onTimeDensityChange(); showTimeDensityMenu = false", :class="{active: timeDensityMinutes === mins}") {{ mins }} {{ $t('min') }}
 							session.new-break.small-break(v-if="caps.canCreateBreak", :session="{title: '+ ' + translations.newBreak}", :isDragged="false", tabindex="0", @startDragging="startNewBreak", @click.stop="showNewBreakHint('small')", @focus="showNewBreakHint('small')", @blur="removeNewBreakHint", @keydown="onNewBreakKeydown", @pointerleave="removeNewBreakHint", :aria-describedby="newBreakHintSource === 'small' ? 'new-break-hint-small' : undefined")
-							.new-break-hint(v-if="newBreakHintSource === 'small'", id="new-break-hint-small", role="tooltip") {{ newBreakTooltip }}
+						.new-break-hint(v-if="newBreakHintSource === 'small'", id="new-break-hint-small", role="tooltip") {{ newBreakTooltip }}
 						.title
 							bunt-input#filter-input(v-model="unassignedFilterString", :placeholder="translations.filterSessions", icon="search", name="filter-input")
 							#unassigned-sort(@click="showUnassignedSortMenu = !showUnassignedSortMenu", :class="{'active': showUnassignedSortMenu}")
@@ -1603,7 +1603,7 @@ onUnmounted(() => {
 									overflow: hidden
 									text-overflow: ellipsis
 									max-width: 120px
-			.desktop-break.c-linear-schedule-session
+			.new-break.c-linear-schedule-session.desktop-break
 				display: none
 		#schedule-wrapper
 			width: 100%
