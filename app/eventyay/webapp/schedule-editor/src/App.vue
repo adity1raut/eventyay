@@ -22,8 +22,8 @@
 								i.fa.fa-chevron-down(aria-hidden="true")
 								.time-density-menu.vue-dropdown(v-if="showTimeDensityMenu")
 									.density-option(v-for="mins in [5, 10, 15, 30, 60]", @click.stop="timeDensityMinutes = mins; onTimeDensityChange(); showTimeDensityMenu = false", :class="{active: timeDensityMinutes === mins}") {{ mins }} {{ $t('min') }}
-							session.new-break.small-break(v-if="caps.canCreateBreak", :session="{title: '+ ' + translations.newBreak}", :isDragged="false", tabindex="0", @startDragging="startNewBreak", @click.stop="showNewBreakHint", @focus="showNewBreakHint", @blur="removeNewBreakHint", @keydown="onNewBreakKeydown", @pointerleave="removeNewBreakHint", :aria-describedby="newBreakTooltip ? 'new-break-hint' : undefined")
-							.new-break-hint(v-if="newBreakTooltip", id="new-break-hint", role="tooltip") {{ newBreakTooltip }}
+							session.new-break.small-break(v-if="caps.canCreateBreak", :session="{title: '+ ' + translations.newBreak}", :isDragged="false", tabindex="0", @startDragging="startNewBreak", @click.stop="showNewBreakHint('small')", @focus="showNewBreakHint('small')", @blur="removeNewBreakHint", @keydown="onNewBreakKeydown", @pointerleave="removeNewBreakHint", :aria-describedby="newBreakHintSource === 'small' ? 'new-break-hint-small' : undefined")
+							.new-break-hint(v-if="newBreakHintSource === 'small'", id="new-break-hint-small", role="tooltip") {{ newBreakTooltip }}
 						.title
 							bunt-input#filter-input(v-model="unassignedFilterString", :placeholder="translations.filterSessions", icon="search", name="filter-input")
 							#unassigned-sort(@click="showUnassignedSortMenu = !showUnassignedSortMenu", :class="{'active': showUnassignedSortMenu}")
@@ -33,8 +33,8 @@
 									span {{ method.label }}
 									i.fa.fa-sort-amount-asc(v-if="unassignedSort === method.name && unassignedSortDirection === 1")
 									i.fa.fa-sort-amount-desc(v-if="unassignedSort === method.name && unassignedSortDirection === -1")
-						session.new-break.desktop-break(v-if="caps.canCreateBreak", :session="{title: '+ ' + translations.newBreak}", :isDragged="false", tabindex="0", @startDragging="startNewBreak", @click.stop="showNewBreakHint", @focus="showNewBreakHint", @blur="removeNewBreakHint", @keydown="onNewBreakKeydown", @pointerleave="removeNewBreakHint", :aria-describedby="newBreakTooltip ? 'new-break-hint' : undefined")
-						.new-break-hint(v-if="newBreakTooltip", id="new-break-hint", role="tooltip") {{ newBreakTooltip }}
+						session.new-break.desktop-break(v-if="caps.canCreateBreak", :session="{title: '+ ' + translations.newBreak}", :isDragged="false", tabindex="0", @startDragging="startNewBreak", @click.stop="showNewBreakHint('desktop')", @focus="showNewBreakHint('desktop')", @blur="removeNewBreakHint", @keydown="onNewBreakKeydown", @pointerleave="removeNewBreakHint", :aria-describedby="newBreakHintSource === 'desktop' ? 'new-break-hint-desktop' : undefined")
+						.new-break-hint(v-if="newBreakHintSource === 'desktop'", id="new-break-hint-desktop", role="tooltip") {{ newBreakTooltip }}
 					session(v-for="un in unscheduled", :key="un.id", :session="un", @startDragging="startDragging", :isDragged="draggedSession && un.id === draggedSession.id", @editSession="editorStart($event)", @deleteSession="deleteSessionDirect($event)", @assignMembers="openAssignModal($event)")
 					.deleted-room-sessions(v-if="deletedRoomSessions.length")
 						h3 {{ caps.showRoles ? $t('Shifts from Unavailable Rooms') : $t('Deleted Room Sessions') }}
@@ -426,6 +426,7 @@ const unassignedSort = ref<string>('title')
 const unassignedSortDirection = ref<number>(1)
 const showUnassignedSortMenu = ref<boolean>(false)
 const newBreakTooltip = ref<string>('')
+const newBreakHintSource = ref<'small' | 'desktop' | null>(null)
 const eventTimezone = ref<string | null>(null)
 const since = ref<string | undefined>(undefined)
 const showTimeDensityMenu = ref<boolean>(false)
@@ -973,12 +974,14 @@ async function unassignMember(roleId: number, userId: number): Promise<void> {
   }
 }
 
-function showNewBreakHint() {
+function showNewBreakHint(source: 'small' | 'desktop') {
   newBreakTooltip.value = $t('Drag the box to the schedule to create a new break')
+  newBreakHintSource.value = source
 }
 
 function removeNewBreakHint() {
   newBreakTooltip.value = ''
+  newBreakHintSource.value = null
 }
 
 function onNewBreakKeydown(event: KeyboardEvent) {
