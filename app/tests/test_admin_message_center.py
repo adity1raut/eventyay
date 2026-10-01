@@ -6,6 +6,7 @@ from django.core import mail as djmail
 from django.urls import reverse
 from django.utils.timezone import now
 
+from eventyay.base.email import TEST_EMAIL_BODY
 from eventyay.base.models import User
 from eventyay.base.models.admin_mail import (
     AdminEmailQueue,
@@ -602,13 +603,16 @@ def test_send_test_email_requires_test_address(admin_client):
 
 
 @pytest.mark.django_db
-def test_send_test_email_without_content(admin_client):
+@pytest.mark.parametrize('message', ['', '<p></p>'])
+def test_send_test_email_without_content(admin_client, message):
     with patch('eventyay.control.views.admin_messages.mail_send_task') as task:
-        response = admin_client.post('/admin/messages/compose/', data=_compose_data(subject='', message_0=''))
+        response = admin_client.post('/admin/messages/compose/', data=_compose_data(subject='', message_0=message))
     form = response.context['form']
     assert not form.errors
     task.assert_called_once()
-    assert task.call_args.kwargs['subject'] == '[TEST] (No subject)'
+    assert task.call_args.kwargs['subject'] == '[TEST] Eventyay test email'
+    assert task.call_args.kwargs['body'] == str(TEST_EMAIL_BODY)
+    assert str(TEST_EMAIL_BODY) in task.call_args.kwargs['html']
     assert form.fields['subject'].required
     assert form.fields['message'].one_required
 

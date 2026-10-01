@@ -13,12 +13,14 @@ from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from django.utils.timezone import now as tz_now
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import FormView, ListView, TemplateView
 from django_scopes import scopes_disabled
 
+from eventyay.base.email import TEST_EMAIL_BODY, TEST_EMAIL_SUBJECT
 from eventyay.base.models import Event, LogEntry, Organizer, User
 from eventyay.base.models.admin_mail import (
     AdminEmailQueue,
@@ -843,8 +845,12 @@ class AdminMessageComposeView(AdministratorPermissionRequiredMixin, FormView):
     def _send_test_email(self, form, test_email: str):
 
         cd = form.cleaned_data
-        subject = cd.get('subject') or str(_('(No subject)'))
+        # An empty subject or message falls back to the text of the email settings test email, so the
+        # test email is never blank. The editor submits "<p></p>" when emptied, so look for visible content.
+        subject = cd.get('subject') or str(TEST_EMAIL_SUBJECT)
         body = _get_message_text(cd)
+        if not strip_tags(body).strip() and '<img' not in body:
+            body = str(TEST_EMAIL_BODY)
 
         sample = dict(SAMPLE_CONTEXT)
         sample['email'] = test_email
