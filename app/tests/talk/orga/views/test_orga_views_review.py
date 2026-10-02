@@ -616,26 +616,28 @@ def test_review_overview_table_layout(review_client, review_user, submission):
 
 
 
+@pytest.mark.parametrize("action", ("accept", "reject"))
 @pytest.mark.django_db
-def test_orga_can_accept_all_from_review_dashboard(orga_client, submission, other_submission):
+def test_orga_can_accept_or_reject_all_from_review_dashboard(orga_client, submission, other_submission, action):
     url = submission.event.orga_urls.reviews
     content = orga_client.get(url).content.decode()
-    accept_all_name = re.search(r'id="a-all" name="([^"]+)"', content).group(1)
+    all_id = "a-all" if action == "accept" else "r-all"
+    all_name = re.search(rf'id="{all_id}" name="([^"]+)"', content).group(1)
 
     response = orga_client.post(
         url,
         {
-            f"s-{submission.code}": "accept",
-            f"s-{other_submission.code}": "accept",
-            accept_all_name: "accept",
+            f"s-{submission.code}": action,
+            f"s-{other_submission.code}": action,
+            all_name: action,
         },
         follow=True,
     )
 
     content = response.content.decode()
-    assert "2 proposals were accepted" in content
+    assert f"2 proposals were {action}ed" in content
     assert "unable to change the state" not in content
     with scope(event=submission.event):
         submission.refresh_from_db()
         other_submission.refresh_from_db()
-        assert submission.state == other_submission.state == "accepted"
+        assert submission.state == other_submission.state == f"{action}ed"
