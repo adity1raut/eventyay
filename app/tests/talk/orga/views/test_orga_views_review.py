@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 
 import pytest
@@ -613,3 +614,28 @@ def test_review_overview_table_layout(review_client, review_user, submission):
     assert '<td class="nowrap">' in response.text
     assert "Yes" in response.text
 
+
+
+@pytest.mark.django_db
+def test_orga_can_accept_all_from_review_dashboard(orga_client, submission, other_submission):
+    url = submission.event.orga_urls.reviews
+    content = orga_client.get(url).content.decode()
+    accept_all_name = re.search(r'id="a-all" name="([^"]+)"', content).group(1)
+
+    response = orga_client.post(
+        url,
+        {
+            f"s-{submission.code}": "accept",
+            f"s-{other_submission.code}": "accept",
+            accept_all_name: "accept",
+        },
+        follow=True,
+    )
+
+    content = response.content.decode()
+    assert "2 proposals were accepted" in content
+    assert "unable to change the state" not in content
+    with scope(event=submission.event):
+        submission.refresh_from_db()
+        other_submission.refresh_from_db()
+        assert submission.state == other_submission.state == "accepted"
