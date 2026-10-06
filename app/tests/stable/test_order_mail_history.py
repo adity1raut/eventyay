@@ -11,6 +11,7 @@ from eventyay.base.models import Order
 
 @pytest.fixture
 def order(event):
+    """A paid order with an email address."""
     with scope(organizer=event.organizer):
         return Order.objects.create(
             event=event,
@@ -25,10 +26,12 @@ def order(event):
 
 
 def order_url(order):
+    """Return the organizer URL of the order's detail page."""
     return f'/control/event/{order.event.organizer.slug}/{order.event.slug}/orders/{order.code}/'
 
 
 def log_email(order, action_type, message):
+    """Log an email for the order the way send_mail does."""
     with scope(organizer=order.event.organizer):
         order.log_action(
             action_type,
@@ -39,6 +42,7 @@ def log_email(order, action_type, message):
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
 def test_custom_email_is_shown_as_formatted_text(organizer_client, order):
+    """A custom email from the rich text editor is shown as paragraphs, not as HTML tags."""
     organizer_client.post(
         order_url(order) + 'sendmail',
         {
@@ -58,6 +62,7 @@ def test_custom_email_is_shown_as_formatted_text(organizer_client, order):
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
 def test_plain_text_email_is_shown_as_paragraphs(organizer_client, order):
+    """A plain-text system email is shown as paragraphs, like the HTML email."""
     log_email(order, 'eventyay.event.order.email.resend', 'Hello,\n\nyour order is confirmed.')
 
     content = organizer_client.get(order_url(order) + 'mail_history').content.decode()
@@ -69,6 +74,7 @@ def test_plain_text_email_is_shown_as_paragraphs(organizer_client, order):
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
 def test_email_html_is_sanitized(organizer_client, order):
+    """Unsafe HTML in a stored email is removed before it is shown."""
     log_email(order, 'eventyay.event.order.email.custom_sent', '<p>Hi</p><script>alert(1)</script>')
 
     content = organizer_client.get(order_url(order) + 'mail_history').content.decode()
@@ -80,6 +86,7 @@ def test_email_html_is_sanitized(organizer_client, order):
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
 def test_remote_images_are_shown_as_links(organizer_client, order):
+    """Remote images are shown as links, while inline data images are still shown."""
     qr_image = 'data:image/png;base64,iVBORw0KGgo='
     log_email(
         order,
