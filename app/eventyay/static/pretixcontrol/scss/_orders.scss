@@ -70,6 +70,12 @@
     p:last-child {
         margin-bottom: 0;
     }
+    .mail-body {
+        padding: 9.5px;
+        background-color: #f5f5f5;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
 }
 
 .batch-select-actions-orders {

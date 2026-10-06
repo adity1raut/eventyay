@@ -359,6 +359,14 @@ def rich_text_snippet(text: str):
 
 
 @register.filter
+def rich_text_email(text: str):
+    """Render a stored email body the way the HTML email shows it to the recipient."""
+    if not text:
+        return ''
+    return mark_safe(compile_email_body(text))
+
+
+@register.filter
 def html_to_markdown_filter(html_text: str) -> str:
     """Convert HTML to markdown format."""
     return html_text if not html_text else html_to_markdown(html_text)
