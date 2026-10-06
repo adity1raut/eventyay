@@ -11,6 +11,7 @@ import markdown
 from bleach import DEFAULT_CALLBACKS
 # TODO: Remove bleach import
 from bleach.linkifier import build_email_re, build_url_re
+from bs4 import BeautifulSoup
 from django import template
 from django.conf import settings
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -358,12 +359,28 @@ def rich_text_snippet(text: str):
     return mark_safe(_unwrap_single_paragraph(str(rendered)))
 
 
+def _link_remote_images(html_body: str) -> str:
+    """Replace remote images with links, so viewing a stored email does not load them."""
+    soup = BeautifulSoup(html_body, 'html.parser')
+    for img in soup.find_all('img'):
+        src = img.get('src', '')
+        if src.lower().startswith(('http://', 'https://', '//')):
+            link = soup.new_tag('a', href=src, target='_blank', rel='noopener noreferrer')
+            link.string = img.get('alt') or src
+            img.replace_with(link)
+    return str(soup)
+
+
 @register.filter
 def rich_text_email(text: str):
-    """Render a stored email body the way the HTML email shows it to the recipient."""
+    """Render a stored email body the way the HTML email shows it to the recipient.
+
+    Remote images are shown as links instead, so opening the email history does not
+    contact the image host.
+    """
     if not text:
         return ''
-    return mark_safe(compile_email_body(text))
+    return mark_safe(_link_remote_images(compile_email_body(text)))
 
 
 @register.filter

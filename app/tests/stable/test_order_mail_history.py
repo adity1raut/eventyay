@@ -75,3 +75,22 @@ def test_email_html_is_sanitized(organizer_client, order):
 
     assert '<p>Hi</p>' in content
     assert '<script>alert(1)' not in content
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_remote_images_are_shown_as_links(organizer_client, order):
+    qr_image = 'data:image/png;base64,iVBORw0KGgo='
+    log_email(
+        order,
+        'eventyay.event.order.email.custom_sent',
+        f'<p><img src="https://images.example.com/banner.png" alt="Banner"></p><p><img src="{qr_image}" alt="QR"></p>',
+    )
+
+    content = organizer_client.get(order_url(order) + 'mail_history').content.decode()
+
+    assert '<img alt="Banner"' not in content
+    assert 'src="https://images.example.com/banner.png"' not in content
+    assert 'href="https://images.example.com/banner.png"' in content
+    assert '>Banner</a>' in content
+    assert f'src="{qr_image}"' in content
