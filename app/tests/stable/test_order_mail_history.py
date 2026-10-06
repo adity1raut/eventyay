@@ -101,3 +101,25 @@ def test_remote_images_are_shown_as_links(organizer_client, order):
     assert 'href="https://images.example.com/banner.png"' in content
     assert '>Banner</a>' in content
     assert f'src="{qr_image}"' in content
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+@pytest.mark.parametrize(
+    'src',
+    [
+        ' https://images.example.com/banner.png',
+        '&#10;https://images.example.com/banner.png',
+        '/\\images.example.com/banner.png',
+    ],
+    ids=['leading-space', 'leading-newline', 'backslash-path'],
+)
+def test_images_with_disguised_sources_are_shown_as_links(organizer_client, order, src):
+    """Images whose source a browser would still load from another host are shown as links too."""
+    log_email(order, 'eventyay.event.order.email.custom_sent', f'<p><img src="{src}" alt="Banner"></p>')
+
+    content = organizer_client.get(order_url(order) + 'mail_history').content.decode()
+
+    assert '>Banner</a>' in content
+    assert 'images.example.com/banner.png"/>' not in content
+    assert '<img alt="Banner"' not in content

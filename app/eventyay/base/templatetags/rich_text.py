@@ -360,14 +360,19 @@ def rich_text_snippet(text: str):
 
 
 def _link_remote_images(html_body: str) -> str:
-    """Replace remote images with links, so viewing a stored email does not load them."""
+    """Replace images that are not embedded in the email with links, so viewing it loads nothing."""
     soup = BeautifulSoup(html_body, 'html.parser')
     for img in soup.find_all('img'):
-        src = img.get('src', '')
-        if src.lower().startswith(('http://', 'https://', '//')):
+        src = img.get('src', '').strip()
+        # Browsers ignore whitespace and control characters in URLs, so check the source without them.
+        if re.sub(r'[\x00-\x20]', '', src).lower().startswith('data:image/'):
+            continue
+        if src:
             link = soup.new_tag('a', href=src, target='_blank', rel='noopener noreferrer')
             link.string = img.get('alt') or src
             img.replace_with(link)
+        else:
+            img.replace_with(img.get('alt', ''))
     return str(soup)
 
 
@@ -375,8 +380,8 @@ def _link_remote_images(html_body: str) -> str:
 def rich_text_email(text: str):
     """Render a stored email body the way the HTML email shows it to the recipient.
 
-    Remote images are shown as links instead, so opening the email history does not
-    contact the image host.
+    Images that are not embedded in the email are shown as links instead, so opening
+    the email history does not contact the image host.
     """
     if not text:
         return ''
