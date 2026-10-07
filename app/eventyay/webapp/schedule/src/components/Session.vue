@@ -29,7 +29,7 @@ a.c-linear-schedule-session(:class="{faved, 'has-date': showDate, 'short-session
 		.speakers-row(v-if="namedSpeakers.length")
 			.speakers(
 				ref="speakersRow",
-				:class="{'names-clamped': isShortSession, 'has-roles': hasSpeakerRoles}",
+				:class="{'names-clamped': isShortSession, 'has-roles': showSpeakerRoles}",
 				:aria-label="speakersAriaLabel")
 				span.speaker(v-for="(speaker, i) of namedSpeakers", :key="speaker.code || i")
 					img(
@@ -41,8 +41,8 @@ a.c-linear-schedule-session(:class="{faved, 'has-date': showDate, 'short-session
 						decoding="async")
 					span.speaker-text
 						span.speaker-label {{ speaker.name }}
-						span.speaker-role(v-if="speakerRole(speaker)") {{ speakerRole(speaker) }}
-					span.speaker-separator(v-if="!hasSpeakerRoles && i + 1 < namedSpeakers.length", aria-hidden="true") ,
+						span.speaker-role(v-if="showSpeakerRoles && speakerRole(speaker)") {{ speakerRole(speaker) }}
+					span.speaker-separator(v-if="!showSpeakerRoles && i + 1 < namedSpeakers.length", aria-hidden="true") ,
 			span.speakers-overflow-hint(
 				v-if="speakersHiddenCount > 0",
 				:aria-label="speakersOverflowLabel") {{ speakersOverflowHint }}
@@ -286,8 +286,9 @@ export default {
 		namedSpeakers () {
 			return (this.session.speakers || []).filter(s => (s.name || '').trim())
 		},
-		hasSpeakerRoles () {
-			return this.namedSpeakers.some(speaker => this.speakerRole(speaker))
+		showSpeakerRoles () {
+			// Short sessions clamp the speakers to one line, so they keep showing names only.
+			return !this.isShortSession && this.namedSpeakers.some(speaker => this.speakerRole(speaker))
 		},
 		speakersAriaLabel () {
 			return this.namedSpeakers.map(speaker => {
@@ -701,8 +702,6 @@ expandClampedSessionText()
 			&.names-clamped
 				max-height: var(--session-speaker-line-height)
 				overflow: hidden
-				.speaker-role
-					display: none
 		.abstract
 			margin: 8px 0 12px 0
 			// TODO make this take up more space if available?
