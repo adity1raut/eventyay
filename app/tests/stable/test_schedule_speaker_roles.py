@@ -1,9 +1,20 @@
 import datetime as dt
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
+from django.core.cache import cache
+from django.test.utils import override_settings
 from django_scopes import scope
 
+from eventyay.agenda.views.utils import get_or_build_landing_featured_widget_schedule
 from eventyay.base.models import Room, Submission, SubmissionType, TalkSlot
+
+LOCMEM_CACHE = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'schedule-speaker-roles-tests',
+    }
+}
 
 
 @pytest.fixture
@@ -43,6 +54,13 @@ def set_public(event, **public):
     event.cfp.save()
 
 
+def landing_speaker_role(event, user):
+    """Return the speaker_role of `user` in the featured speaker cards on the event Info page."""
+    with scope(event=event):
+        data = get_or_build_landing_featured_widget_schedule(event, AnonymousUser())
+    return next(speaker['speaker_role'] for speaker in data['speakers'] if speaker['code'] == user.code)
+
+
 def compact_speaker_role(schedule, user):
     """Return the speaker_role of `user` in the compact schedule data used by the public schedule."""
     with scope(event=schedule.event):
@@ -72,3 +90,26 @@ def test_compact_schedule_speaker_role_is_empty_when_not_public(event, user, sch
     set_public(event, job_title=False, organization=False)
 
     assert compact_speaker_role(schedule, user) == ''
+
+
+@pytest.mark.django_db
+@override_settings(CACHES=LOCMEM_CACHE)
+def test_featured_speaker_cards_follow_role_visibility_changes(event, user, django_capture_on_commit_callbacks):
+    """Making the role fields public refreshes the cached featured speaker cards on the Info page."""
+    cache.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        event.feature_flags['show_featured_speakers'] = 'always'
+        event.save()
+        with scope(event=event):
+            profile = user.event_profile(event)
+            profile.job_title = 'Founder'
+            profile.organization = 'FOSSASIA'
+            profile.is_featured = True
+            profile.save()
+        set_public(event, job_title=False, organization=False)
+    assert landing_speaker_role(event, user) == ''
+
+    with django_capture_on_commit_callbacks(execute=True):
+        set_public(event, job_title=True, organization=True)
+
+    assert landing_speaker_role(event, user) == 'Founder, FOSSASIA'
