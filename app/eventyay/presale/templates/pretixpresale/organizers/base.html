@@ -11,9 +11,9 @@
 
 {% block title %}
     {% if messages %}
-        {{ messages|join:" " }} ::
+        {{ messages|join:" " }} -
     {% endif %}
-    {% block pagetitle %}{% endblock %} :: {{ organizer.name }}
+    {% block pagetitle %}{% endblock %} - {{ organizer.name }}
 {% endblock %}
 
 {% block meta_description %}
