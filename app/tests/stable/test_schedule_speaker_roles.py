@@ -3,11 +3,13 @@ import datetime as dt
 import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
+from django.db import transaction
 from django.test.utils import override_settings
 from django_scopes import scope
 
 from eventyay.agenda.views.utils import get_or_build_landing_featured_widget_schedule
 from eventyay.base.models import Room, Submission, SubmissionType, TalkSlot
+from eventyay.base.services.stale_cache import get_schedule_cache_version
 
 LOCMEM_CACHE = {
     'default': {
@@ -113,3 +115,33 @@ def test_featured_speaker_cards_follow_role_visibility_changes(event, user, djan
         set_public(event, job_title=True, organization=True)
 
     assert landing_speaker_role(event, user) == 'Founder, FOSSASIA'
+
+
+@pytest.mark.django_db
+@override_settings(CACHES=LOCMEM_CACHE)
+def test_rolled_back_change_does_not_stop_a_later_cache_refresh(event, django_capture_on_commit_callbacks):
+    """A visibility change that is rolled back must not keep a later change from refreshing the caches."""
+    cache.clear()
+    version = get_schedule_cache_version(event.pk)
+    with pytest.raises(RuntimeError), transaction.atomic():
+        set_public(event, job_title=True, organization=True)
+        raise RuntimeError
+
+    with django_capture_on_commit_callbacks(execute=True):
+        set_public(event, job_title=False, organization=False)
+
+    assert get_schedule_cache_version(event.pk) == version + 1
+
+
+@pytest.mark.django_db
+@override_settings(CACHES=LOCMEM_CACHE)
+def test_cache_version_is_bumped_once_per_commit(event, django_capture_on_commit_callbacks):
+    """Several changes in one transaction refresh the caches once."""
+    cache.clear()
+    version = get_schedule_cache_version(event.pk)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        set_public(event, job_title=True)
+        set_public(event, organization=True)
+
+    assert get_schedule_cache_version(event.pk) == version + 1
