@@ -73,6 +73,17 @@ def test_plain_text_email_is_shown_as_paragraphs(organizer_client, order):
 
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
+def test_email_is_shown_in_a_grey_box(organizer_client, order):
+    """The email keeps the grey box it had as a <pre> block, using the Bootstrap well."""
+    log_email(order, 'eventyay.event.order.email.resend', 'Hello,\n\nyour order is confirmed.')
+
+    content = organizer_client.get(order_url(order) + 'mail_history').content.decode()
+
+    assert '<div class="mail-body well well-sm"><p>Hello,</p>' in content
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
 def test_email_html_is_sanitized(organizer_client, order):
     """Unsafe HTML in a stored email is removed before it is shown."""
     log_email(order, 'eventyay.event.order.email.custom_sent', '<p>Hi</p><script>alert(1)</script>')

@@ -51,7 +51,7 @@
                             <strong>{% trans "Subject:" %}
                                 {{ log.parsed_data.subject }}</strong>
                         </p>
-                        <div class="mail-body">{{ log.parsed_data.message|rich_text_email }}</div>
+                        <div class="mail-body well well-sm">{{ log.parsed_data.message|rich_text_email }}</div>
                     {% endif %}
                 </li>
             {% endfor %}
