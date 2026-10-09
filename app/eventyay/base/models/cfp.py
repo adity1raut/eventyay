@@ -8,6 +8,7 @@ from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from i18nfield.fields import I18nCharField, I18nTextField
 
+from eventyay.base.services.stale_cache import bump_schedule_cache_version_on_commit
 from eventyay.common.text.phrases import phrases
 from eventyay.common.urls import EventUrls
 
@@ -290,8 +291,6 @@ class CfP(PretalxModel):
 @receiver(post_save, sender=CfP)
 def invalidate_schedule_cache_on_cfp_fields_change(sender, instance, **kwargs):
     """Rebuild cached public schedule and speaker data, whose fields follow the CfP field visibility."""
-    from eventyay.base.services.stale_cache import bump_schedule_cache_version_on_commit
-
     if kwargs.get('created'):
         return
     update_fields = kwargs.get('update_fields')
