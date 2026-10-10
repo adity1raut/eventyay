@@ -5,6 +5,7 @@ import json
 import logging
 import operator
 import re
+import tempfile
 from collections import OrderedDict
 from decimal import Decimal, InvalidOperation
 from itertools import groupby
@@ -1233,9 +1234,14 @@ class EventDelete(RecentAuthenticationRequiredMixin, EventPermissionRequiredMixi
 def _csv_text(value):
     """Keep spreadsheet apps from running exported text as a formula."""
     value = str(value)
-    if value.startswith(('=', '+', '-', '@', '\t', '\r')):
+    if value.startswith(('\t', '\r', '\n')) or value.lstrip().startswith(('=', '+', '-', '@')):
         return f"'{value}"
     return value
+
+
+def _csv_plain_text(value):
+    """Export the text of a value the page shows as HTML, such as a link to an object."""
+    return _csv_text(html.unescape(strip_tags(str(value))))
 
 
 class EventLog(EventPermissionRequiredMixin, PaginationMixin, ListView):
@@ -1311,12 +1317,19 @@ class EventLog(EventPermissionRequiredMixin, PaginationMixin, ListView):
         return super().get(request, *args, **kwargs)
 
     def _download_csv(self):
-        """Export every log entry that matches the current filters, not only the current page."""
-        output = io.StringIO()
-        writer = csv.writer(output, quoting=csv.QUOTE_NONNUMERIC, delimiter=',')
+        """Export every log entry that matches the current filters, not only the current page.
+
+        The rows are written to a temporary file, which moves to disk once it gets
+        large, and the log entries are loaded in chunks, so a long log does not
+        have to fit into memory.
+        """
+        output = tempfile.SpooledTemporaryFile(max_size=10 * 1024 * 1024)
+        text = io.TextIOWrapper(output, encoding='utf-8', newline='')
+        writer = csv.writer(text, quoting=csv.QUOTE_NONNUMERIC, delimiter=',')
         writer.writerow([_('Date'), _('User'), _('Object'), _('Action')])
 
-        for log in self.get_queryset():
+        logs = self.get_queryset().prefetch_related('content_object')
+        for log in logs.iterator(chunk_size=500):
             if log.user:
                 user = log.user.get_full_name()
                 if log.oauth_application:
@@ -1331,15 +1344,20 @@ class EventLog(EventPermissionRequiredMixin, PaginationMixin, ListView):
                 [
                     localtime(log.datetime).replace(microsecond=0).isoformat(),
                     _csv_text(user),
-                    # The object is shown as a link on the page, the export only keeps its text.
-                    _csv_text(html.unescape(strip_tags(str(log.display_object)))),
-                    _csv_text(log.display()),
+                    _csv_plain_text(log.display_object),
+                    _csv_plain_text(log.display()),
                 ]
             )
 
-        r = HttpResponse(output.getvalue().encode('utf-8'), content_type='text/csv')
-        r['Content-Disposition'] = f'attachment; filename="{self.request.event.slug}-logs.csv"'
-        return r
+        text.flush()
+        text.detach()
+        output.seek(0)
+        return FileResponse(
+            output,
+            as_attachment=True,
+            filename=f'{self.request.event.slug}-logs.csv',
+            content_type='text/csv',
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data()
