@@ -1,3 +1,4 @@
+import csv
 import html
 import io
 import json
@@ -27,7 +28,8 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils.functional import cached_property
-from django.utils.timezone import now
+from django.utils.html import strip_tags
+from django.utils.timezone import localtime, now
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DeleteView, FormView, ListView
@@ -1228,6 +1230,14 @@ class EventDelete(RecentAuthenticationRequiredMixin, EventPermissionRequiredMixi
         return reverse('eventyay_common:dashboard')
 
 
+def _csv_text(value):
+    """Keep spreadsheet apps from running exported text as a formula."""
+    value = str(value)
+    if value.startswith(('=', '+', '-', '@', '\t', '\r')):
+        return f"'{value}"
+    return value
+
+
 class EventLog(EventPermissionRequiredMixin, PaginationMixin, ListView):
     template_name = 'pretixcontrol/event/logs.html'
     model = LogEntry
@@ -1294,6 +1304,42 @@ class EventLog(EventPermissionRequiredMixin, PaginationMixin, ListView):
                 qs = qs.filter(object_id=self.request.GET.get('object'))
 
         return qs
+
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('download', '') == 'yes':
+            return self._download_csv()
+        return super().get(request, *args, **kwargs)
+
+    def _download_csv(self):
+        """Export every log entry that matches the current filters, not only the current page."""
+        output = io.StringIO()
+        writer = csv.writer(output, quoting=csv.QUOTE_NONNUMERIC, delimiter=',')
+        writer.writerow([_('Date'), _('User'), _('Object'), _('Action')])
+
+        for log in self.get_queryset():
+            if log.user:
+                user = log.user.get_full_name()
+                if log.oauth_application:
+                    user = f'{user} ({log.oauth_application.name})'
+            elif log.device:
+                user = log.device.name
+            elif log.api_token:
+                user = log.api_token.name
+            else:
+                user = ''
+            writer.writerow(
+                [
+                    localtime(log.datetime).replace(microsecond=0).isoformat(),
+                    _csv_text(user),
+                    # The object is shown as a link on the page, the export only keeps its text.
+                    _csv_text(html.unescape(strip_tags(str(log.display_object)))),
+                    _csv_text(log.display()),
+                ]
+            )
+
+        r = HttpResponse(output.getvalue().encode('utf-8'), content_type='text/csv')
+        r['Content-Disposition'] = f'attachment; filename="{self.request.event.slug}-logs.csv"'
+        return r
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data()
