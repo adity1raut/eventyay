@@ -10,6 +10,7 @@ SAVED = 'Your changes have been saved.'
 PASSWORD_CHANGED = 'Your password has been changed successfully.'
 WRONG_PASSWORD = 'The current password you entered was not correct.'
 PASSWORD_MISSING = 'Please enter your current password if you want to change your password.'
+NO_CHANGES = 'No changes were made.'
 
 
 def save_general(client, **data):
@@ -67,6 +68,17 @@ def test_changing_the_password_and_other_settings_confirms_both(authenticated_cl
     )
 
     assert page_messages(response) == [PASSWORD_CHANGED, SAVED]
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+@pytest.mark.parametrize('data', [{}, {'old_pw': 'testpass123'}], ids=['nothing', 'current-password-only'])
+def test_saving_without_changes_says_nothing_was_changed(authenticated_client, user, data):
+    response = save_general(authenticated_client, **data)
+
+    assert page_messages(response) == [NO_CHANGES]
+    user.refresh_from_db()
+    assert user.check_password('testpass123')
 
 
 @pytest.mark.django_db

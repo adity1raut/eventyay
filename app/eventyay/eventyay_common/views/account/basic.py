@@ -143,12 +143,16 @@ class GeneralSettingsView(LoginRequiredMixin, AccountMenuMixIn, UpdateView):
 
         update_session_auth_hash(self.request, self.request.user)
 
-        # Confirm only now that everything has been saved.
+        # Confirm only now that everything has been saved. Entering only the current
+        # password does not change anything, so it is not confirmed as a change.
         password_changed = 'new_pw' in form.changed_data
+        settings_changed = set(form.changed_data) - {'old_pw', 'new_pw', 'new_pw_repeat'}
         if password_changed:
             messages.success(self.request, _('Your password has been changed successfully.'))
-        if not password_changed or set(form.changed_data) - {'old_pw', 'new_pw', 'new_pw_repeat'}:
+        if settings_changed:
             messages.success(self.request, _('Your changes have been saved.'))
+        elif not password_changed:
+            messages.info(self.request, _('No changes were made.'))
 
         new_locale = form.cleaned_data.get('locale')
         if new_locale:
