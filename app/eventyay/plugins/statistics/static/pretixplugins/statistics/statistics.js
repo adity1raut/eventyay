@@ -10,12 +10,14 @@ $(function () {
     // The charts are drawn for the screen width. While printing, a viewBox lets the print
     // stylesheet scale them down to the page width instead of cutting them off.
     window.addEventListener("beforeprint", function () {
-        $(".chart svg").each(function () {
-            this.setAttribute("viewBox", "0 0 " + this.getAttribute("width") + " " + this.getAttribute("height"));
+        document.querySelectorAll(".chart svg").forEach(function (svg) {
+            svg.setAttribute("viewBox", "0 0 " + svg.getAttribute("width") + " " + svg.getAttribute("height"));
         });
     });
     window.addEventListener("afterprint", function () {
-        $(".chart svg").removeAttr("viewBox");
+        document.querySelectorAll(".chart svg").forEach(function (svg) {
+            svg.removeAttribute("viewBox");
+        });
     });
     new Morris.Area({
         element: 'obd_chart',

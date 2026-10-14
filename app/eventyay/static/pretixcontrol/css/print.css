@@ -1,6 +1,10 @@
 /* Print layout of the organizer area: only the page content is printed. */
 @media print {
-    /* The sidebar is not printed, so the content does not keep its space and border. */
+    /* The navbar and the sidebar are not printed, so the content does not keep their space. */
+    #wrapper {
+        padding-top: 0;
+    }
+
     #wrapper #page-wrapper {
         margin-left: 0;
         border-left: 0;

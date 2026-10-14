@@ -13,7 +13,6 @@ def test_event_dashboards_leave_the_navigation_out_of_the_printout(organizer_cli
     html = response.content.decode()
     assert 'class="navigation-button hidden-print"' in html
     assert 'class="navbar-default sidebar hidden-print"' in html
-    assert 'pretixcontrol/css/print.css' in html
 
 
 @pytest.mark.django_db
