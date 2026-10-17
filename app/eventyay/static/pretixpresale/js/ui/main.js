@@ -369,7 +369,7 @@ $(function () {
 
     var getVariationSelectionTotal = function ($details) {
         var selectedTotal = 0;
-        $details.find(".variations input[type=checkbox], .variations input[type=number]").each(function () {
+        variationInputs($details).each(function () {
             var $input = $(this);
             if ($input.attr("type") === "checkbox") {
                 if ($input.prop("checked")) {
@@ -387,7 +387,9 @@ $(function () {
     };
 
     var variationInputs = function ($details) {
-        return $details.find(".variations input[type=checkbox], .variations input[type=number]");
+        // Only the selected quantities count towards the limit. Pay-what-you-want variations
+        // also have a number input for the price, which must not be counted or changed here.
+        return $details.find(".variations input[type=checkbox], .variations input[type=number]:not(.input-product-price)");
     };
 
     var clearVariationValidity = function ($details) {
