@@ -9,6 +9,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db import IntegrityError, OperationalError, ProgrammingError
+from django.db.models import ProtectedError
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, reverse
 from django.urls import NoReverseMatch, reverse_lazy
@@ -861,7 +862,14 @@ class ThirdPartyServiceDeleteView(AdministratorPermissionRequiredMixin, DeleteVi
     success_url = reverse_lazy('eventyay_admin:admin.global.privacy')
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        try:
+            response = super().form_valid(form)
+        except ProtectedError:
+            messages.error(
+                self.request,
+                _('The service could not be removed as other data (e.g. created by plug-ins) still refers to it.'),
+            )
+            return redirect(self.success_url)
         messages.success(self.request, _('The service has been removed.'))
         return response
 

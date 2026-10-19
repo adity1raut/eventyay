@@ -107,12 +107,12 @@
                     <td>{% if service.enabled %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</td>
                     <td class="text-right flip">
                         <a href="{% url 'eventyay_admin:admin.global.privacy.service.edit' pk=service.pk %}"
-                           class="btn btn-default btn-sm" title="{% trans "Edit" %}">
+                           class="btn btn-default btn-sm" title="{% trans 'Edit' %}">
                             <span class="fa fa-edit"></span>
                             <span class="sr-only">{% trans "Edit" %}</span>
                         </a>
                         <a href="{% url 'eventyay_admin:admin.global.privacy.service.delete' pk=service.pk %}"
-                           class="btn btn-danger btn-sm" title="{% trans "Remove" %}">
+                           class="btn btn-danger btn-sm" title="{% trans 'Remove' %}">
                             <span class="fa fa-trash"></span>
                             <span class="sr-only">{% trans "Remove" %}</span>
                         </a>

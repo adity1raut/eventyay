@@ -1,4 +1,5 @@
 import pytest
+from django.db.models import ProtectedError
 from django.test import override_settings
 from django.urls import reverse
 
@@ -107,16 +108,109 @@ def test_admin_can_remove_a_service(admin_client, youtube):
 
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
-@pytest.mark.parametrize('client_fixture', ['staff_client', 'organizer_client'])
-def test_only_admins_can_manage_services(request, client_fixture, youtube):
-    """Staff outside admin mode and organizers cannot change the registry."""
-    client = request.getfixturevalue(client_fixture)
+@pytest.mark.parametrize('name', ['Google-Analytics', 'google analytics', 'google.analytics'])
+def test_service_identifier_is_lowercase_letters_digits_and_dashes(admin_client, name):
+    url = reverse('eventyay_admin:admin.global.privacy.service.add')
+    response = admin_client.post(url, service_data(name=name))
 
-    client.post(reverse('eventyay_admin:admin.global.privacy.service.add'), service_data())
-    client.post(
-        reverse('eventyay_admin:admin.global.privacy.service.edit', kwargs={'pk': youtube.pk}),
-        service_data(name='youtube', title='Changed'),
-    )
-    client.post(reverse('eventyay_admin:admin.global.privacy.service.delete', kwargs={'pk': youtube.pk}))
+    assert response.status_code == 200
+    assert 'name' in response.context['form'].errors
+    assert not ThirdPartyService.objects.exists()
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_service_identifier_cannot_be_changed(admin_client, youtube):
+    """Embeds and stored consent refer to the service by its name."""
+    url = reverse('eventyay_admin:admin.global.privacy.service.edit', kwargs={'pk': youtube.pk})
+    assert admin_client.get(url).context['form'].fields['name'].disabled
+
+    admin_client.post(url, service_data(name='renamed', title='YouTube'))
+
+    youtube.refresh_from_db()
+    assert youtube.name == 'youtube'
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_service_with_an_older_identifier_can_still_be_edited(admin_client):
+    """A name saved before the format was enforced does not block other changes."""
+    service = ThirdPartyService.objects.create(name='Matomo', title='Matomo', category='analytics')
+    url = reverse('eventyay_admin:admin.global.privacy.service.edit', kwargs={'pk': service.pk})
+    response = admin_client.post(url, service_data(title='Matomo Analytics'), follow=True)
+
+    assert [str(m) for m in response.context['messages']] == ['Your changes have been saved.']
+    service.refresh_from_db()
+    assert (service.name, service.title) == ('Matomo', 'Matomo Analytics')
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_service_form_explains_the_cookie_name_format(admin_client):
+    response = admin_client.get(reverse('eventyay_admin:admin.global.privacy.service.add'))
+
+    assert 'One cookie name per line' in response.content.decode()
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_comma_separated_cookie_names_are_split(admin_client):
+    url = reverse('eventyay_admin:admin.global.privacy.service.add')
+    admin_client.post(url, service_data(cookie_names='  _ga, _gid ,_gat\n\n ^_ga_.{1,3} \n'))
+
+    service = ThirdPartyService.objects.get(name='google-analytics')
+    assert service.cookie_name_list == ['_ga', '_gid', '_gat', '^_ga_.{1,3}']
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_protected_service_is_not_removed(admin_client, youtube, monkeypatch):
+    """When other data still refers to the service, the admin is told so instead of getting an error page."""
+
+    def protected(self, *args, **kwargs):
+        raise ProtectedError('referenced', {self})
+
+    monkeypatch.setattr(ThirdPartyService, 'delete', protected)
+    url = reverse('eventyay_admin:admin.global.privacy.service.delete', kwargs={'pk': youtube.pk})
+    response = admin_client.post(url, follow=True)
+
+    assert response.redirect_chain[-1][0] == reverse('eventyay_admin:admin.global.privacy')
+    assert [str(m) for m in response.context['messages']] == [
+        'The service could not be removed as other data (e.g. created by plug-ins) still refers to it.'
+    ]
+    assert ThirdPartyService.objects.filter(pk=youtube.pk).exists()
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+@pytest.mark.parametrize('method', ['get', 'post'])
+@pytest.mark.parametrize(
+    ('client_fixture', 'redirect_to'),
+    [
+        ('client', 'auth.login'),
+        ('staff_client', 'control:user.sudo'),
+        ('organizer_client', None),
+    ],
+    ids=['anonymous', 'staff-outside-admin-mode', 'organizer'],
+)
+def test_only_admins_can_manage_services(request, client_fixture, redirect_to, method, youtube):
+    """Visitors are sent to log in, staff to enter admin mode, and organizers are refused."""
+    client = request.getfixturevalue(client_fixture)
+    pages = [
+        (reverse('eventyay_admin:admin.global.privacy.service.add'), service_data()),
+        (
+            reverse('eventyay_admin:admin.global.privacy.service.edit', kwargs={'pk': youtube.pk}),
+            service_data(name='youtube', title='Changed'),
+        ),
+        (reverse('eventyay_admin:admin.global.privacy.service.delete', kwargs={'pk': youtube.pk}), {}),
+    ]
+
+    for url, data in pages:
+        response = client.post(url, data) if method == 'post' else client.get(url)
+        if redirect_to:
+            assert response.status_code == 302
+            assert response.url == reverse(redirect_to) + '?next=' + url
+        else:
+            assert response.status_code == 403
 
     assert list(ThirdPartyService.objects.values_list('name', 'title')) == [('youtube', 'YouTube')]

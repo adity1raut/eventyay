@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from collections import OrderedDict
 from typing import List, Union
 
@@ -957,7 +958,44 @@ class ThirdPartyServiceForm(forms.ModelForm):
             'cookie_names': forms.Textarea(attrs={'rows': 3}),
         }
 
+    # Klaro looks the service up by this exact name in its config, in the data-name of
+    # consent-gated content and in the consent it stores, so it has a single spelling.
+    name_pattern = re.compile(r'^[a-z0-9_-]+$')
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # A service without a category is left out of the consent banner, so it has to get one here.
         self.fields['category'].required = True
+        if self.instance.pk:
+            # Renaming would detach the service from the content that refers to it and from the
+            # consent visitors already gave, so the name is fixed once the service exists.
+            self.fields['name'].disabled = True
+            self.fields['name'].help_text = _(
+                'Consent-gated embeds and the consent visitors already gave refer to the service by this '
+                'name, so it cannot be changed.'
+            )
+        else:
+            self.fields['name'].help_text = _(
+                'Short machine name of lowercase letters, digits, "-" and "_", e.g. "google-analytics". '
+                'Consent-gated embeds refer to the service by this name.'
+            )
+
+    def clean_name(self):
+        name = self.cleaned_data['name']
+        # A fixed name is kept as it is, even one saved before this check.
+        if not self.fields['name'].disabled and not self.name_pattern.match(name):
+            raise ValidationError(_('Use only lowercase letters, digits, "-" and "_".'))
+        return name
+
+    def clean_cookie_names(self):
+        # A cookie name cannot contain a comma or whitespace, so a line such as "_ga, _gid" is
+        # split into its names. A line starting with ^ is a regular expression, which may
+        # contain both (e.g. "^_ga_.{1,3}"), so it is kept as it is.
+        names = []
+        for line in self.cleaned_data['cookie_names'].splitlines():
+            entry = line.strip()
+            if entry.startswith('^'):
+                names.append(entry)
+            else:
+                names.extend(name for name in re.split(r'[\s,]+', entry) if name)
+        return '\n'.join(names)
