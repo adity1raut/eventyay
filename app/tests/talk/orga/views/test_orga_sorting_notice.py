@@ -26,11 +26,12 @@ def test_sorting_notice_keeps_text_and_link_together(orga_client, event, page):
     response = orga_client.get(f'{LIST_URLS[page](event)}?sort=name')
     assert response.status_code == 200
 
+    # Found by structure, not by its text, so the test also holds when the notice is translated.
     doc = bs4.BeautifulSoup(response.content, 'lxml')
-    link = doc.find('a', class_='alert-link', string='Reset to manual order')
+    (link,) = doc.select('.alert a.alert-link')
     alert = link.find_parent(class_='alert')
 
     (content,) = alert.find_all(recursive=False)
     assert link in content.descendants
-    assert 'disabled while custom sorting is active.' in content.get_text()
+    assert content.get_text(strip=True) != link.get_text(strip=True)
     assert not ''.join(alert.find_all(string=True, recursive=False)).strip()
