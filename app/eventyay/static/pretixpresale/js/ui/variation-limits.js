@@ -16,8 +16,9 @@ const selectedAmount = (input) => {
     if (input.type === 'checkbox') {
         return input.checked ? 1 : 0;
     }
-    const value = parseInt(input.value || '0', 10);
-    return Number.isNaN(value) || value < 0 ? 0 : value;
+    // Number() reads the whole value, so "1e3" counts as 1000 and not as 1 like parseInt() would.
+    const value = Number(input.value || 0);
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 };
 
 const selectionTotal = (details) =>
@@ -46,6 +47,21 @@ const showValidity = (input, message) => {
     }
     input.setCustomValidity(message);
     input.reportValidity();
+};
+
+// Shows the message on an input that was set back within the limit. Browsers hide the message as soon as
+// the input is valid again, so it stays invalid only until the visitor's next action: pressing the mouse or
+// a key, or leaving the input. The corrected input therefore never blocks the order.
+const showCorrection = (input, message) => {
+    showValidity(input, message);
+    const done = new AbortController();
+    const clear = () => {
+        input.setCustomValidity('');
+        done.abort();
+    };
+    input.addEventListener('blur', clear, { signal: done.signal });
+    input.addEventListener('keydown', clear, { signal: done.signal });
+    document.addEventListener('pointerdown', clear, { signal: done.signal });
 };
 
 const showVariations = (details) => {
@@ -90,7 +106,7 @@ const enforceMaximum = (details, changedInput) => {
             const allowed = maxTotal - (total - selectedAmount(changedInput));
             changedInput.value = String(Math.max(0, allowed));
         }
-        showValidity(changedInput, message);
+        showCorrection(changedInput, message);
         return false;
     }
 
