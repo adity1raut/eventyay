@@ -182,6 +182,25 @@ def test_invalid_cookie_pattern_is_rejected(admin_client, pattern):
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
 @pytest.mark.parametrize(
+    ('line', 'pattern'),
+    [('_ga, ^_ga_(', '^_ga_('), ('_ga ^(?P<cookie>_ga_)', '^(?P<cookie>_ga_)')],
+    ids=['after-a-comma', 'after-a-space'],
+)
+def test_invalid_cookie_pattern_split_off_a_line_is_rejected(admin_client, line, pattern):
+    """A pattern after a cookie name on the same line is saved as its own entry, so it is checked too."""
+    url = reverse('eventyay_admin:admin.global.privacy.service.add')
+    response = admin_client.post(url, service_data(cookie_names=line))
+
+    assert response.status_code == 200
+    errors = response.context['form'].errors['cookie_names']
+    assert len(errors) == 1
+    assert errors[0].startswith(f'"{pattern}" is not a valid regular expression: ')
+    assert not ThirdPartyService.objects.exists()
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+@pytest.mark.parametrize(
     ('pattern', 'syntax'),
     [
         ('^(?P<cookie>_ga_)', '(?P'),

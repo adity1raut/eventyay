@@ -1057,33 +1057,38 @@ class ThirdPartyServiceForm(forms.ModelForm):
         # split into its names. A line starting with ^ is a regular expression, which may
         # contain both (e.g. "^_ga_.{1,3}"), so it is kept as it is.
         names = []
-        errors = []
         for line in self.cleaned_data['cookie_names'].splitlines():
             entry = line.strip()
             if entry.startswith('^'):
-                # Klaro compiles the pattern in the visitor's browser without catching errors, so an
-                # invalid one stops it from clearing cookies. Compiling it here catches the mistakes
-                # Python and JavaScript both reject; browser_regex_problem() the syntax only Python
-                # accepts. The pattern is only compiled here, never matched against anything.
-                reason = None
-                try:
-                    re.compile(entry)
-                except re.error as e:
-                    reason = e.msg
-                else:
-                    problem = browser_regex_problem(entry)
-                    if problem:
-                        reason = _('browsers do not support "%(syntax)s"') % {'syntax': problem}
-                if reason:
-                    errors.append(
-                        ValidationError(
-                            _('"%(pattern)s" is not a valid regular expression: %(reason)s.'),
-                            params={'pattern': entry, 'reason': reason},
-                        )
-                    )
                 names.append(entry)
             else:
                 names.extend(name for name in re.split(r'[\s,]+', entry) if name)
+
+        # Every entry starting with ^ is a regular expression, including one split off a line
+        # such as "_ga, ^_ga_". Klaro compiles it in the visitor's browser without catching
+        # errors, so an invalid one stops it from clearing cookies. Compiling it here catches
+        # the mistakes Python and JavaScript both reject; browser_regex_problem() the syntax
+        # only Python accepts. The pattern is only compiled here, never matched against anything.
+        errors = []
+        for pattern in names:
+            if not pattern.startswith('^'):
+                continue
+            reason = None
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                reason = e.msg
+            else:
+                problem = browser_regex_problem(pattern)
+                if problem:
+                    reason = _('browsers do not support "%(syntax)s"') % {'syntax': problem}
+            if reason:
+                errors.append(
+                    ValidationError(
+                        _('"%(pattern)s" is not a valid regular expression: %(reason)s.'),
+                        params={'pattern': pattern, 'reason': reason},
+                    )
+                )
         if errors:
             raise ValidationError(errors)
         return '\n'.join(names)
