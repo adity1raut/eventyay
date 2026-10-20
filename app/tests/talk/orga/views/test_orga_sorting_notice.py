@@ -1,6 +1,6 @@
 """Tests for the notice shown above the Rooms, Tracks and Session types tables while they are sorted.
 
-The alert is a flex container, so its sentence and the "Reset to manual order" link
+The alert is a flex container, so its sentence and the "Click here to reset to default order" link
 must be in one child element. As separate flex items, the space between them is lost
 and on phones the link is pushed into a narrow column of its own.
 """
