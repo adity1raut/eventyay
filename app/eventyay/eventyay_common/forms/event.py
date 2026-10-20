@@ -345,6 +345,7 @@ class EventUpdateForm(I18nModelForm):
         if self.instance and self.instance.organizer:
             self.fields['slug'].widget.organizer = self.instance.organizer
             self.fields['slug'].widget.event = self.instance
+            self.fields['slug'].widget.prefix = build_absolute_uri(self.instance.organizer, 'presale:organizer.index')
 
         if not self.change_slug:
             self.fields['slug'].widget.attrs['readonly'] = 'readonly'
