@@ -181,6 +181,44 @@ def test_invalid_cookie_pattern_is_rejected(admin_client, pattern):
 
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
+@pytest.mark.parametrize(
+    ('pattern', 'syntax'),
+    [
+        ('^(?P<cookie>_ga_)', '(?P'),
+        ('^_ga_(?#comment)', '(?#'),
+        ('^(?i:_ga_)', '(?i'),
+        ('^(?>_ga_)', '(?>'),
+        ('^(_ga)?(?(1)_x|_y)', '(?('),
+        ('^_ga_.*+', '*+'),
+        ('^_ga_.{1,3}+', '}+'),
+        ('^(?<=_)?ga', ')?'),
+        ('^[]_ga]', '[]'),
+    ],
+)
+def test_cookie_pattern_only_python_accepts_is_rejected(admin_client, pattern, syntax):
+    """These compile with Python's re, but new RegExp() throws on them in the browser."""
+    url = reverse('eventyay_admin:admin.global.privacy.service.add')
+    response = admin_client.post(url, service_data(cookie_names=pattern))
+
+    assert response.status_code == 200
+    assert response.context['form'].errors['cookie_names'] == [
+        f'"{pattern}" is not a valid regular expression: browsers do not support "{syntax}".'
+    ]
+    assert not ThirdPartyService.objects.exists()
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_cookie_patterns_browsers_accept_are_kept(admin_client):
+    patterns = ['^_ga_.{1,3}', '^(?:_ga|_gid)$', '^_ga(?=_)', '^(?<=_)ga', '^[*+]_x', '^_pk_.*?$']
+    url = reverse('eventyay_admin:admin.global.privacy.service.add')
+    admin_client.post(url, service_data(cookie_names='\n'.join(patterns)))
+
+    assert ThirdPartyService.objects.get(name='google-analytics').cookie_name_list == patterns
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
 def test_service_form_explains_strictly_necessary(admin_client):
     """Services in that category run without consent, so the form says what it is for."""
     response = admin_client.get(reverse('eventyay_admin:admin.global.privacy.service.add'))

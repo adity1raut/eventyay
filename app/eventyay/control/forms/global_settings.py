@@ -947,6 +947,67 @@ class PrivacySettingsForm(SettingsForm):
         return data
 
 
+# Quantifier braces as Python's re reads them: {n}, {n,} and {n,m}.
+QUANTIFIER_BRACES = re.compile(r'\{\d+(?:,\d*)?\}')
+
+
+def browser_regex_problem(pattern):
+    """Syntax in ``pattern`` that Python's re accepts but a browser's RegExp rejects, or None.
+
+    ``pattern`` must already compile with re. Of the (? group extensions, browsers only know
+    (?: (?= (?! (?<= and (?<!, not named groups, comments, inline flags, atomic groups or
+    conditionals. They also reject possessive quantifiers such as *+, a quantifier on a
+    lookbehind, and read a ] straight after [ or [^ as the end of the class, not a character.
+    """
+    i = 0
+    groups = []
+    # What the token before the current one was: 'greedy' or 'lazy' for a quantifier, 'lookbehind'
+    # or 'group' for a closed group, None for anything else.
+    previous = None
+    while i < len(pattern):
+        char = pattern[i]
+        if char == '\\':
+            i += 2
+            previous = None
+        elif char == '[':
+            start = i
+            i += 1
+            if pattern.startswith('^', i):
+                i += 1
+            if pattern.startswith(']', i):
+                return pattern[start : i + 1]
+            while i < len(pattern) and pattern[i] != ']':
+                i += 2 if pattern[i] == '\\' else 1
+            i += 1
+            previous = None
+        elif char == '(':
+            if pattern.startswith('?', i + 1):
+                if not pattern.startswith((':', '=', '!', '<=', '<!'), i + 2):
+                    return pattern[i : i + 3]
+                groups.append('lookbehind' if pattern.startswith('<', i + 2) else 'group')
+                i += 2
+            else:
+                groups.append('group')
+                i += 1
+            previous = None
+        elif char == ')':
+            previous = groups.pop() if groups else None
+            i += 1
+        elif char in '*+?' or (char == '{' and QUANTIFIER_BRACES.match(pattern, i)):
+            end = QUANTIFIER_BRACES.match(pattern, i).end() if char == '{' else i + 1
+            if previous == 'greedy' and char == '?':
+                previous = 'lazy'
+            elif previous in ('greedy', 'lazy', 'lookbehind'):
+                return pattern[i - 1 : end]
+            else:
+                previous = 'greedy'
+            i = end
+        else:
+            previous = None
+            i += 1
+    return None
+
+
 class ThirdPartyServiceForm(forms.ModelForm):
     """Add or edit an entry of the third-party service registry."""
 
@@ -1001,15 +1062,23 @@ class ThirdPartyServiceForm(forms.ModelForm):
             entry = line.strip()
             if entry.startswith('^'):
                 # Klaro compiles the pattern in the visitor's browser without catching errors, so an
-                # invalid one stops it from clearing cookies. Python and JavaScript regular expressions
-                # differ in places, but agree on the syntax cookie patterns use.
+                # invalid one stops it from clearing cookies. Compiling it here catches the mistakes
+                # Python and JavaScript both reject; browser_regex_problem() the syntax only Python
+                # accepts. The pattern is only compiled here, never matched against anything.
+                reason = None
                 try:
                     re.compile(entry)
                 except re.error as e:
+                    reason = e.msg
+                else:
+                    problem = browser_regex_problem(entry)
+                    if problem:
+                        reason = _('browsers do not support "%(syntax)s"') % {'syntax': problem}
+                if reason:
                     errors.append(
                         ValidationError(
                             _('"%(pattern)s" is not a valid regular expression: %(reason)s.'),
-                            params={'pattern': entry, 'reason': e.msg},
+                            params={'pattern': entry, 'reason': reason},
                         )
                     )
                 names.append(entry)
