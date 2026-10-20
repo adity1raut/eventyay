@@ -12,7 +12,7 @@ from django.core.files.uploadedfile import UploadedFile
 from django.utils.translation import gettext_lazy as _
 
 from eventyay.base.forms import SECRET_REDACTED, SecretKeySettingsField, SecretKeySettingsWidget, SettingsForm
-from eventyay.base.models.privacy import ConsentProvider, ThirdPartyService
+from eventyay.base.models.privacy import ConsentCategory, ConsentProvider, ThirdPartyService
 from eventyay.base.settings import EVENT_SERIES_CREATION_ENABLED, MEETUP_CREATION_ENABLED, GlobalSettingsObject
 from eventyay.base.signals import register_global_settings
 from eventyay.common.urls import get_file_url_path
@@ -966,6 +966,10 @@ class ThirdPartyServiceForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # A service without a category is left out of the consent banner, so it has to get one here.
         self.fields['category'].required = True
+        self.fields['category'].help_text = _(
+            '"%(necessary)s" is only for services the site cannot work without: they run without asking '
+            'and visitors cannot switch them off.'
+        ) % {'necessary': ConsentCategory.NECESSARY.label}
         if self.instance.pk:
             # Renaming would detach the service from the content that refers to it and from the
             # consent visitors already gave, so the name is fixed once the service exists.
@@ -992,10 +996,25 @@ class ThirdPartyServiceForm(forms.ModelForm):
         # split into its names. A line starting with ^ is a regular expression, which may
         # contain both (e.g. "^_ga_.{1,3}"), so it is kept as it is.
         names = []
+        errors = []
         for line in self.cleaned_data['cookie_names'].splitlines():
             entry = line.strip()
             if entry.startswith('^'):
+                # Klaro compiles the pattern in the visitor's browser without catching errors, so an
+                # invalid one stops it from clearing cookies. Python and JavaScript regular expressions
+                # differ in places, but agree on the syntax cookie patterns use.
+                try:
+                    re.compile(entry)
+                except re.error as e:
+                    errors.append(
+                        ValidationError(
+                            _('"%(pattern)s" is not a valid regular expression: %(reason)s.'),
+                            params={'pattern': entry, 'reason': e.msg},
+                        )
+                    )
                 names.append(entry)
             else:
                 names.extend(name for name in re.split(r'[\s,]+', entry) if name)
+        if errors:
+            raise ValidationError(errors)
         return '\n'.join(names)

@@ -164,6 +164,32 @@ def test_comma_separated_cookie_names_are_split(admin_client):
 
 @pytest.mark.django_db
 @override_settings(SITE_URL='https://testserver')
+@pytest.mark.parametrize(
+    'pattern', ['^_ga_(', '^_ga_[', '^*_ga'], ids=['unterminated-group', 'unterminated-set', 'nothing-to-repeat']
+)
+def test_invalid_cookie_pattern_is_rejected(admin_client, pattern):
+    """Klaro compiles ^ lines in the browser, where an invalid one stops it from clearing cookies."""
+    url = reverse('eventyay_admin:admin.global.privacy.service.add')
+    response = admin_client.post(url, service_data(cookie_names='_ga\n' + pattern))
+
+    assert response.status_code == 200
+    errors = response.context['form'].errors['cookie_names']
+    assert len(errors) == 1
+    assert errors[0].startswith(f'"{pattern}" is not a valid regular expression: ')
+    assert not ThirdPartyService.objects.exists()
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
+def test_service_form_explains_strictly_necessary(admin_client):
+    """Services in that category run without consent, so the form says what it is for."""
+    response = admin_client.get(reverse('eventyay_admin:admin.global.privacy.service.add'))
+
+    assert 'only for services the site cannot work without' in response.content.decode()
+
+
+@pytest.mark.django_db
+@override_settings(SITE_URL='https://testserver')
 def test_protected_service_is_not_removed(admin_client, youtube, monkeypatch):
     """When other data still refers to the service, the admin is told so instead of getting an error page."""
 
