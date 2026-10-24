@@ -4,12 +4,10 @@
  */
 const DETAILS_SELECTOR = 'details.item-with-variations[data-variation-max-total]';
 
-// Only the selected quantities count towards the limit. Pay-what-you-want variations
-// also have a number input for the price, which must not be counted or changed here.
+// Only the selected quantities count towards the limit: the checkboxes and the quantity inputs.
+// Other number inputs, such as the price of a pay-what-you-want variation, are not counted or changed.
 const variationInputs = (details) => [
-    ...details.querySelectorAll(
-        '.variations input[type=checkbox], .variations input[type=number]:not(.input-product-price)'
-    ),
+    ...details.querySelectorAll('.variations input[type=checkbox], .variations input.input-product-count'),
 ];
 
 const selectedAmount = (input) => {
@@ -24,10 +22,16 @@ const selectedAmount = (input) => {
 const selectionTotal = (details) =>
     variationInputs(details).reduce((total, input) => total + selectedAmount(input), 0);
 
+// Django's JavaScript catalog defines gettext, ngettext and interpolate on window. If it is missing,
+// the message is shown in English, so the limit keeps working.
 const limitMessage = (details, maxTotal) => {
-    const productName = (details.getAttribute('data-product-name') || gettext('this product')).trim();
-    return interpolate(
-        ngettext(
+    const defaultName = typeof window.gettext === 'function' ? window.gettext('this product') : 'this product';
+    const productName = (details.getAttribute('data-product-name') || defaultName).trim();
+    if (typeof window.ngettext !== 'function' || typeof window.interpolate !== 'function') {
+        return `You can only choose a maximum of ${maxTotal} option${maxTotal === 1 ? '' : 's'} for ${productName}.`;
+    }
+    return window.interpolate(
+        window.ngettext(
             'You can only choose a maximum of %(max)s option for %(product)s.',
             'You can only choose a maximum of %(max)s options for %(product)s.',
             maxTotal
@@ -106,6 +110,9 @@ const enforceMaximum = (details, changedInput) => {
             const allowed = maxTotal - (total - selectedAmount(changedInput));
             changedInput.value = String(Math.max(0, allowed));
         }
+        // Setting the value does not fire change, so fire it for main.js to update the order button.
+        // It runs this check again, which clears the messages, so the message is shown afterwards.
+        changedInput.dispatchEvent(new Event('change', { bubbles: true }));
         showCorrection(changedInput, message);
         return false;
     }
