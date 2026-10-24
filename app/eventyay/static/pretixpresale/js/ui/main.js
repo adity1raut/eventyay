@@ -519,10 +519,11 @@ $(function () {
 
     $("span[data-timezone], small[data-timezone]").each(function() {
         var tzName = $(this).attr("data-timezone")
+        var tzLabel = tzName.replace(/_/g, " ")
         var t = moment.tz($(this).attr("data-time"), tzName)
 
         $(this).tooltip({
-            'title': gettext("Time zone:") + " " + tzName
+            'title': gettext("Time zone:") + " " + tzLabel
         });
         if (t.tz(tzName).format() !== t.tz(local_tz).format()) {
             var $add = $("<span>")
@@ -540,7 +541,7 @@ $(function () {
             }
             $add.insertAfter($(this));
             $add.tooltip({
-                'title': gettext("Time zone:") + " " + local_tz,
+                'title': gettext("Time zone:") + " " + local_tz.replace(/_/g, " "),
             });
         }
     });
