@@ -6,9 +6,10 @@ const DETAILS_SELECTOR = 'details.item-with-variations[data-variation-max-total]
 
 // Only the selected quantities count towards the limit: the checkboxes and the quantity inputs.
 // Other number inputs, such as the price of a pay-what-you-want variation, are not counted or changed.
-const variationInputs = (details) => [
-    ...details.querySelectorAll('.variations input[type=checkbox], .variations input.input-product-count'),
-];
+// tests/tickets/presale/test_event.py reads this selector, so keep it a single-quoted string.
+const VARIATION_INPUTS_SELECTOR = '.variations input[type=checkbox], .variations input.input-product-count';
+
+const variationInputs = (details) => [...details.querySelectorAll(VARIATION_INPUTS_SELECTOR)];
 
 const selectedAmount = (input) => {
     if (input.type === 'checkbox') {
@@ -104,15 +105,22 @@ const enforceMaximum = (details, changedInput) => {
     showVariations(details);
 
     if (changedInput) {
+        let corrected;
         if (changedInput.type === 'checkbox') {
+            corrected = changedInput.checked;
             changedInput.checked = false;
         } else {
-            const allowed = maxTotal - (total - selectedAmount(changedInput));
-            changedInput.value = String(Math.max(0, allowed));
+            const allowed = String(Math.max(0, maxTotal - (total - selectedAmount(changedInput))));
+            corrected = changedInput.value !== allowed;
+            changedInput.value = allowed;
         }
         // Setting the value does not fire change, so fire it for main.js to update the order button.
         // It runs this check again, which clears the messages, so the message is shown afterwards.
-        changedInput.dispatchEvent(new Event('change', { bubbles: true }));
+        // If the other inputs alone are over the limit, nothing was changed and the check fails again,
+        // so change is only fired after a correction. Otherwise it would fire again without end.
+        if (corrected) {
+            changedInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
         showCorrection(changedInput, message);
         return false;
     }
@@ -125,7 +133,11 @@ document.querySelectorAll(DETAILS_SELECTOR).forEach((details) => {
     variationInputs(details).forEach((input) => {
         const onChange = () => enforceMaximum(details, input);
         input.addEventListener('change', onChange);
-        input.addEventListener('input', onChange);
+        // A checkbox fires input and then change for the same click. Checking it on both would clear the
+        // message that the first check showed, so a checkbox is only checked on change.
+        if (input.type !== 'checkbox') {
+            input.addEventListener('input', onChange);
+        }
     });
 });
 
