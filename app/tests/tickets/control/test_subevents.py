@@ -1318,3 +1318,48 @@ class SubEventsTest(SoupTest):
                 cl = se.checkinlist_set.get()
                 assert set(cl.gates.all()) == set(gates)
                 assert list(cl.limit_products.all()) == [self.ticket]
+
+    def test_create_bulk_copy_from_keeps_list_gates(self):
+        with scopes_disabled():
+            gates = [self.orga1.gates.create(name='Main entrance'), self.orga1.gates.create(name='Side entrance')]
+            cl = self.subevent1.checkinlist_set.create(
+                event=self.event1, name='Entry', all_products=False, allow_entry_after_exit=False
+            )
+            cl.limit_products.add(self.ticket)
+            cl.gates.set(gates)
+        doc = self.get_doc(f'/control/event/ccc/30c3/subevents/bulk_add?copy_from={self.subevent1.pk}')
+        form = doc.select_one('input[name=rruleformset-TOTAL_FORMS]').find_parent('form')
+        for helper_input in form.select('input:not([name])'):
+            helper_input.decompose()  # time slot helpers, not submitted
+        fields = extract_form_fields(form)
+        assert sorted(fields['checkinlist_set-0-gates']) == sorted(str(gate.pk) for gate in gates)
+        assert 'checkinlist_set-0-allow_entry_after_exit' not in fields
+        fields.update(
+            {
+                'rruleformset-TOTAL_FORMS': '1',
+                'rruleformset-INITIAL_FORMS': '0',
+                'rruleformset-0-interval': '1',
+                'rruleformset-0-freq': 'yearly',
+                'rruleformset-0-dtstart': '2018-04-03',
+                'rruleformset-0-yearly_same': 'on',
+                'rruleformset-0-end': 'count',
+                'rruleformset-0-count': '2',
+                'timeformset-TOTAL_FORMS': '1',
+                'timeformset-INITIAL_FORMS': '0',
+                'timeformset-0-time_from': '13:29:31',
+                'timeformset-0-time_to': '15:29:31',
+                'quotas-0-name': 'Bar',
+                'quotas-0-size': '12',
+                'quotas-0-productvars': str(self.ticket.pk),
+            }
+        )
+        doc = self.post_doc('/control/event/ccc/30c3/subevents/bulk_add', fields)
+        assert doc.select('.alert-success')
+        with scopes_disabled():
+            new_dates = self.event1.subevents.exclude(pk__in=[self.subevent1.pk, self.subevent2.pk])
+            assert new_dates.count() == 2
+            for se in new_dates:
+                new_list = se.checkinlist_set.get()
+                assert set(new_list.gates.all()) == set(gates)
+                assert not new_list.allow_entry_after_exit
+                assert list(new_list.limit_products.all()) == [self.ticket]

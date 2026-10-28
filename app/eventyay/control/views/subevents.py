@@ -236,8 +236,10 @@ class SubEventEditorMixin(MetaDataEditorMixin):
                     'all_products': cl.all_products,
                     'limit_products': cl.limit_products.all(),
                     'include_pending': cl.include_pending,
+                    'allow_entry_after_exit': cl.allow_entry_after_exit,
+                    'gates': cl.gates.all(),
                 }
-                for cl in self.copy_from.checkinlist_set.prefetch_related('limit_products')
+                for cl in self.copy_from.checkinlist_set.prefetch_related('limit_products', 'gates')
             ]
             extra = len(kwargs['initial'])
         elif not self.object and self.request.method != 'POST':
