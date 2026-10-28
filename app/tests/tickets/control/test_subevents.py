@@ -1221,3 +1221,100 @@ class SubEventsTest(SoupTest):
         )
         fields = extract_form_fields(doc)
         assert 'checkinlist_set-TOTAL_FORMS' not in fields
+
+    def _bulk_edit_list_gates(self, all_products):
+        with scopes_disabled():
+            gates = [self.orga1.gates.create(name='Main entrance'), self.orga1.gates.create(name='Side entrance')]
+            for se in (self.subevent1, self.subevent2):
+                cl = se.checkinlist_set.create(event=self.event1, name='Entry', all_products=all_products)
+                if not all_products:
+                    cl.limit_products.add(self.ticket)
+        doc = self.post_doc('/control/event/ccc/30c3/subevents/bulk_edit', {'__ALL': 'on'}, follow=True)
+        fields = extract_form_fields(doc)
+        fields.update(
+            {
+                '_bulk': ['__checkinlists'],
+                'checkinlist_set-0-gates': [str(gate.pk) for gate in gates],
+            }
+        )
+        doc = self.post_doc('/control/event/ccc/30c3/subevents/bulk_edit', fields, follow=True)
+        assert doc.select('.alert-success')
+        return gates
+
+    def test_edit_bulk_lists_change_gates(self):
+        gates = self._bulk_edit_list_gates(all_products=False)
+        with scopes_disabled():
+            for se in (self.subevent1, self.subevent2):
+                cl = se.checkinlist_set.get(name='Entry')
+                assert set(cl.gates.all()) == set(gates)
+                assert list(cl.limit_products.all()) == [self.ticket]
+
+    def test_edit_bulk_lists_change_gates_with_all_products(self):
+        gates = self._bulk_edit_list_gates(all_products=True)
+        with scopes_disabled():
+            for se in (self.subevent1, self.subevent2):
+                assert set(se.checkinlist_set.get(name='Entry').gates.all()) == set(gates)
+
+    def test_create_bulk_lists_with_gates(self):
+        with scopes_disabled():
+            self.event1.subevents.all().delete()
+            gates = [self.orga1.gates.create(name='Main entrance'), self.orga1.gates.create(name='Side entrance')]
+        doc = self.post_doc(
+            '/control/event/ccc/30c3/subevents/bulk_add',
+            {
+                'rruleformset-TOTAL_FORMS': '1',
+                'rruleformset-INITIAL_FORMS': '0',
+                'rruleformset-MIN_NUM_FORMS': '0',
+                'rruleformset-MAX_NUM_FORMS': '1000',
+                'rruleformset-0-interval': '1',
+                'rruleformset-0-freq': 'yearly',
+                'rruleformset-0-dtstart': '2018-04-03',
+                'rruleformset-0-yearly_same': 'on',
+                'rruleformset-0-yearly_bysetpos': '1',
+                'rruleformset-0-yearly_byweekday': 'MO',
+                'rruleformset-0-yearly_bymonth': '1',
+                'rruleformset-0-monthly_same': 'on',
+                'rruleformset-0-monthly_bysetpos': '1',
+                'rruleformset-0-monthly_byweekday': 'MO',
+                'rruleformset-0-end': 'count',
+                'rruleformset-0-count': '2',
+                'rruleformset-0-until': '2019-04-03',
+                'timeformset-TOTAL_FORMS': '1',
+                'timeformset-INITIAL_FORMS': '0',
+                'timeformset-MIN_NUM_FORMS': '1',
+                'timeformset-MAX_NUM_FORMS': '1000',
+                'timeformset-0-time_from': '13:29:31',
+                'timeformset-0-time_to': '15:29:31',
+                'name_0': 'Foo',
+                'active': 'on',
+                'location_0': 'Loc',
+                'time_admission': '',
+                'frontpage_text_0': '',
+                'rel_presale_start_0': 'unset',
+                'rel_presale_end_0': 'unset',
+                'quotas-TOTAL_FORMS': '1',
+                'quotas-INITIAL_FORMS': '0',
+                'quotas-MIN_NUM_FORMS': '0',
+                'quotas-MAX_NUM_FORMS': '1000',
+                'quotas-0-id': '',
+                'quotas-0-name': 'Bar',
+                'quotas-0-size': '12',
+                'quotas-0-productvars': str(self.ticket.pk),
+                'checkinlist_set-TOTAL_FORMS': '1',
+                'checkinlist_set-INITIAL_FORMS': '0',
+                'checkinlist_set-MIN_NUM_FORMS': '0',
+                'checkinlist_set-MAX_NUM_FORMS': '1000',
+                'checkinlist_set-0-id': '',
+                'checkinlist_set-0-name': 'Entry',
+                'checkinlist_set-0-limit_products': str(self.ticket.pk),
+                'checkinlist_set-0-gates': [str(gate.pk) for gate in gates],
+            },
+        )
+        assert doc.select('.alert-success')
+        with scopes_disabled():
+            ses = list(self.event1.subevents.order_by('date_from'))
+            assert len(ses) == 2
+            for se in ses:
+                cl = se.checkinlist_set.get()
+                assert set(cl.gates.all()) == set(gates)
+                assert list(cl.limit_products.all()) == [self.ticket]
