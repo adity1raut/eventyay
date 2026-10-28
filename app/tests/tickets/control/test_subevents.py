@@ -1222,21 +1222,23 @@ class SubEventsTest(SoupTest):
         fields = extract_form_fields(doc)
         assert 'checkinlist_set-TOTAL_FORMS' not in fields
 
-    def _bulk_edit_list_gates(self, all_products):
+    def _bulk_edit_list_gates(self, all_products, select_new_gates=True):
         with scopes_disabled():
+            old_gate = self.orga1.gates.create(name='Old gate')
             gates = [self.orga1.gates.create(name='Main entrance'), self.orga1.gates.create(name='Side entrance')]
             for se in (self.subevent1, self.subevent2):
                 cl = se.checkinlist_set.create(event=self.event1, name='Entry', all_products=all_products)
+                cl.gates.add(old_gate)
                 if not all_products:
                     cl.limit_products.add(self.ticket)
         doc = self.post_doc('/control/event/ccc/30c3/subevents/bulk_edit', {'__ALL': 'on'}, follow=True)
         fields = extract_form_fields(doc)
-        fields.update(
-            {
-                '_bulk': ['__checkinlists'],
-                'checkinlist_set-0-gates': [str(gate.pk) for gate in gates],
-            }
-        )
+        assert fields['checkinlist_set-0-gates'] == str(old_gate.pk)
+        fields['_bulk'] = ['__checkinlists']
+        if select_new_gates:
+            fields['checkinlist_set-0-gates'] = [str(gate.pk) for gate in gates]
+        else:
+            del fields['checkinlist_set-0-gates']
         doc = self.post_doc('/control/event/ccc/30c3/subevents/bulk_edit', fields, follow=True)
         assert doc.select('.alert-success')
         return gates
@@ -1254,6 +1256,14 @@ class SubEventsTest(SoupTest):
         with scopes_disabled():
             for se in (self.subevent1, self.subevent2):
                 assert set(se.checkinlist_set.get(name='Entry').gates.all()) == set(gates)
+
+    def test_edit_bulk_lists_clear_gates(self):
+        self._bulk_edit_list_gates(all_products=False, select_new_gates=False)
+        with scopes_disabled():
+            for se in (self.subevent1, self.subevent2):
+                cl = se.checkinlist_set.get(name='Entry')
+                assert not cl.gates.exists()
+                assert list(cl.limit_products.all()) == [self.ticket]
 
     def test_create_bulk_lists_with_gates(self):
         with scopes_disabled():
