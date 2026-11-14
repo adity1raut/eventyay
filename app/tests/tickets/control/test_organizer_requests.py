@@ -97,7 +97,9 @@ def test_same_form_when_logged_in(client, admin):
     assert client.get('/invite').status_code == 200
 
 
-@pytest.mark.parametrize('slug', ['UPPER', 'two words', 'control', 'invite', '-bad', 'bad/', 'a' * 51])
+@pytest.mark.parametrize(
+    'slug', ['UPPER', 'two words', 'control', 'invite', 'common', 'admin', 'orga', '-bad', 'bad/', 'a' * 51]
+)
 def test_invalid_slugs(client, data, slug):
     assert not OrganizerRequestForm(data={**data, 'slug': slug}).is_valid()
     assert client.get(reverse('organizer_request.slug'), {'slug': slug}).json()['available'] is False
