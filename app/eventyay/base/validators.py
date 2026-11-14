@@ -39,6 +39,9 @@ class EventSlugBanlistValidator(BanlistValidator):
 
 @deconstructible
 class OrganizerSlugBanlistValidator(BanlistValidator):
+    # An organizer's pages live at /<organizer>/ and /<organizer>/<event>/. A short form that is also a
+    # top-level path would show that path's page instead. tests/stable/test_organizer_slug_banlist.py
+    # checks this list against the URLs.
     banlist = [
         'invite',
         'download',
@@ -55,6 +58,21 @@ class OrganizerSlugBanlistValidator(BanlistValidator):
         'api',
         'csp_report',
         'widget',
+        'admin',
+        'all-events',
+        'common',
+        'exhibitor-invitation',
+        'followed-events',
+        'login',
+        'media',
+        'orga',
+        'page',
+        'past',
+        'privacy',
+        'static',
+        'support',
+        'terms',
+        'upcoming',
     ]
 
 
